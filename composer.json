@@ -20,7 +20,7 @@
         }
     ],
     "require": {
-        "php": "^8.3|^8.4|^8.5",
+        "php": "^8.3",
         "league/flysystem": "^3.0",
         "microsoft/microsoft-graph": "^2.5",
         "guzzlehttp/guzzle": "^7.0",

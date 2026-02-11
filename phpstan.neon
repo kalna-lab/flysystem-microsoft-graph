@@ -1,0 +1,9 @@
+parameters:
+    level: 8
+    paths:
+        - src
+    excludePaths:
+        - vendor
+    ignoreErrors:
+        # Ignore errors related to Microsoft Graph SDK type hints
+        - '#Call to an undefined method Microsoft\\Graph\\Model\\DriveItem::#'

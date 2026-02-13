@@ -18,6 +18,13 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
             __DIR__.'/../config/flysystem-msgraph.php',
             'flysystem-msgraph'
         );
+
+        // Register console commands
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                Console\FindDriveIdCommand::class,
+            ]);
+        }
     }
 
     /**

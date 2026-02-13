@@ -2,6 +2,7 @@
 
 namespace KalnaLab\FlysystemMicrosoftGraph;
 
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Storage;
 use League\Flysystem\Filesystem;
@@ -50,7 +51,7 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
     /**
      * Create a Flysystem instance with Microsoft Graph adapter
      */
-    private function createFilesystem(array $config): Filesystem
+    private function createFilesystem(array $config): FilesystemAdapter
     {
         // Validate required config
         $this->validateConfig($config);
@@ -76,11 +77,15 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
             $config['prefix'] ?? ''
         );
 
-        // Return Flysystem filesystem
-        return new Filesystem($adapter, [
-            'visibility' => 'public',
-            'disable_asserts' => true,
-        ]);
+        // Return Laravel's FilesystemAdapter wrapping Flysystem
+        return new FilesystemAdapter(
+            new Filesystem($adapter, [
+                'visibility' => 'public',
+                'disable_asserts' => true,
+            ]),
+            $adapter,
+            $config
+        );
     }
 
     /**

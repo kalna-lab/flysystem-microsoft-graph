@@ -6,7 +6,6 @@ use League\Flysystem\Config;
 use League\Flysystem\FileAttributes;
 use League\Flysystem\FilesystemAdapter;
 use League\Flysystem\PathPrefixer;
-use League\Flysystem\UnableToCheckFileExistence;
 use League\Flysystem\UnableToCopyFile;
 use League\Flysystem\UnableToCreateDirectory;
 use League\Flysystem\UnableToDeleteDirectory;
@@ -17,16 +16,14 @@ use League\Flysystem\UnableToRetrieveMetadata;
 use League\Flysystem\UnableToSetVisibility;
 use League\Flysystem\UnableToWriteFile;
 use League\Flysystem\DirectoryAttributes;
-use GuzzleHttp\Psr7\Stream;
 use GuzzleHttp\Exception\ClientException;
-use Microsoft\Graph\Generated\Models\DriveItem;
 
 class MicrosoftGraphAdapter implements FilesystemAdapter
 {
     private GraphClient $graph;
     private string $driveId;
     private PathPrefixer $prefixer;
-    
+
     /**
      * @param GraphClient $graph Microsoft Graph client instance
      * @param string $driveId Drive ID (SharePoint document library or OneDrive)
@@ -79,10 +76,9 @@ class MicrosoftGraphAdapter implements FilesystemAdapter
         try {
             $prefixedPath = $this->prefixer->prefixPath($path);
             $endpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}:/content";
-            
+
             $response = $this->graph->createRequest('GET', $endpoint)
-                ->setReturnType(Stream::class)
-                ->execute();
+                ->getStream();
 
             return $response->getContents();
         } catch (ClientException $e) {
@@ -110,7 +106,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter
         try {
             $prefixedPath = $this->prefixer->prefixPath($path);
             $endpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}";
-            
+
             $this->graph->createRequest('DELETE', $endpoint)->execute();
         } catch (ClientException $e) {
             if ($e->getCode() === 404) {
@@ -128,7 +124,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter
         try {
             $prefixedPath = $this->prefixer->prefixPath($path);
             $endpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}";
-            
+
             $this->graph->createRequest('DELETE', $endpoint)->execute();
         } catch (ClientException $e) {
             if ($e->getCode() === 404) {
@@ -148,15 +144,15 @@ class MicrosoftGraphAdapter implements FilesystemAdapter
             $parts = explode('/', trim($prefixedPath, '/'));
             $folderName = array_pop($parts);
             $parentPath = implode('/', $parts);
-            
-            $endpoint = $parentPath 
+
+            $endpoint = $parentPath
                 ? "/drives/{$this->driveId}/root:/{$parentPath}:/children"
                 : "/drives/{$this->driveId}/root/children";
 
             $this->graph->createRequest('POST', $endpoint)
                 ->attachBody([
                     'name' => $folderName,
-                    'folder' => new \stdClass(),
+                    'folder' => (object)[],
                     '@microsoft.graph.conflictBehavior' => 'fail'
                 ])
                 ->execute();
@@ -184,7 +180,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter
     public function mimeType(string $path): FileAttributes
     {
         $metadata = $this->getMetadata($path);
-        
+
         if ($metadata->mimeType() === null) {
             throw UnableToRetrieveMetadata::mimeType($path);
         }
@@ -206,35 +202,39 @@ class MicrosoftGraphAdapter implements FilesystemAdapter
     {
         try {
             $prefixedPath = $this->prefixer->prefixPath($path);
-            
+
             $endpoint = $prefixedPath
                 ? "/drives/{$this->driveId}/root:/{$prefixedPath}:/children"
                 : "/drives/{$this->driveId}/root/children";
 
             $response = $this->graph->createRequest('GET', $endpoint)
-                ->setReturnType(DriveItem::class)
                 ->execute();
 
-            foreach ($response as $item) {
+            $items = $response['value'] ?? [];
+            foreach ($items as $item) {
+                $parentPath = $item['parentReference']['path'] ?? '';
+                $itemName = $item['name'] ?? '';
+
+                // Strip drive prefix from path (e.g., /drives/xxx/root:)
+                $parentPath = preg_replace('#^/drives/[^/]+/root:#', '', $parentPath);
+
                 $itemPath = $this->prefixer->stripPrefix(
-                    ltrim($item->getParentReference()->getPath() . '/' . $item->getName(), '/')
+                    ltrim($parentPath . '/' . $itemName, '/')
                 );
 
-                if ($item->getFolder() !== null) {
+                if (isset($item['folder'])) {
                     yield new DirectoryAttributes($itemPath);
-                    
+
                     if ($deep) {
                         yield from $this->listContents($itemPath, true);
                     }
                 } else {
                     yield new FileAttributes(
                         $itemPath,
-                        $item->getSize(),
+                        $item['size'] ?? null,
                         null,
-                        $item->getLastModifiedDateTime() 
-                            ? strtotime($item->getLastModifiedDateTime()->format('c'))
-                            : null,
-                        $item->getFile()?->getMimeType()
+                        isset($item['lastModifiedDateTime']) ? strtotime($item['lastModifiedDateTime']) : null,
+                        $item['file']['mimeType'] ?? null
                     );
                 }
             }
@@ -252,7 +252,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter
         try {
             $prefixedSource = $this->prefixer->prefixPath($source);
             $prefixedDestination = $this->prefixer->prefixPath($destination);
-            
+
             $destParts = explode('/', trim($prefixedDestination, '/'));
             $newName = array_pop($destParts);
             $newParentPath = implode('/', $destParts);
@@ -261,18 +261,17 @@ class MicrosoftGraphAdapter implements FilesystemAdapter
             $parentEndpoint = $newParentPath
                 ? "/drives/{$this->driveId}/root:/{$newParentPath}"
                 : "/drives/{$this->driveId}/root";
-                
+
             $parentItem = $this->graph->createRequest('GET', $parentEndpoint)
-                ->setReturnType(DriveItem::class)
                 ->execute();
 
             // Move the file
             $endpoint = "/drives/{$this->driveId}/root:/{$prefixedSource}";
-            
+
             $this->graph->createRequest('PATCH', $endpoint)
                 ->attachBody([
                     'parentReference' => [
-                        'id' => $parentItem->getId()
+                        'id' => $parentItem['id']
                     ],
                     'name' => $newName
                 ])
@@ -287,7 +286,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter
         try {
             $prefixedSource = $this->prefixer->prefixPath($source);
             $prefixedDestination = $this->prefixer->prefixPath($destination);
-            
+
             $destParts = explode('/', trim($prefixedDestination, '/'));
             $newName = array_pop($destParts);
             $newParentPath = implode('/', $destParts);
@@ -296,19 +295,18 @@ class MicrosoftGraphAdapter implements FilesystemAdapter
             $parentEndpoint = $newParentPath
                 ? "/drives/{$this->driveId}/root:/{$newParentPath}"
                 : "/drives/{$this->driveId}/root";
-                
+
             $parentItem = $this->graph->createRequest('GET', $parentEndpoint)
-                ->setReturnType(DriveItem::class)
                 ->execute();
 
             // Copy the file
             $endpoint = "/drives/{$this->driveId}/root:/{$prefixedSource}:/copy";
-            
+
             $this->graph->createRequest('POST', $endpoint)
                 ->attachBody([
                     'parentReference' => [
                         'driveId' => $this->driveId,
-                        'id' => $parentItem->getId()
+                        'id' => $parentItem['id']
                     ],
                     'name' => $newName
                 ])
@@ -334,7 +332,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter
             // For files under 4MB, use simple upload
             if ($size < 4 * 1024 * 1024) {
                 $endpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}:/content";
-                
+
                 $this->graph->createRequest('PUT', $endpoint)
                     ->attachBody($contents)
                     ->execute();
@@ -353,7 +351,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter
     private function resumableUpload(string $path, string $contents): void
     {
         $size = strlen($contents);
-        
+
         // Create upload session
         $endpoint = "/drives/{$this->driveId}/root:/{$path}:/createUploadSession";
         $session = $this->graph->createRequest('POST', $endpoint)
@@ -364,8 +362,12 @@ class MicrosoftGraphAdapter implements FilesystemAdapter
             ])
             ->execute();
 
-        $uploadUrl = $session->getUploadUrl();
-        
+        $uploadUrl = $session['uploadUrl'] ?? null;
+
+        if (!$uploadUrl) {
+            throw new \RuntimeException('Failed to create upload session: no uploadUrl returned');
+        }
+
         // Upload in chunks of 5MB
         $chunkSize = 5 * 1024 * 1024;
         $offset = 0;
@@ -397,17 +399,16 @@ class MicrosoftGraphAdapter implements FilesystemAdapter
         try {
             $prefixedPath = $this->prefixer->prefixPath($path);
             $endpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}";
-            
+
             $item = $this->graph->createRequest('GET', $endpoint)
-                ->setReturnType(DriveItem::class)
                 ->execute();
 
-            $isDir = $item->getFolder() !== null;
-            $size = $isDir ? null : $item->getSize();
-            $lastModified = $item->getLastModifiedDateTime()
-                ? strtotime($item->getLastModifiedDateTime()->format('c'))
+            $isDir = isset($item['folder']);
+            $size = $isDir ? null : ($item['size'] ?? null);
+            $lastModified = isset($item['lastModifiedDateTime'])
+                ? strtotime($item['lastModifiedDateTime'])
                 : null;
-            $mimeType = $isDir ? null : $item->getFile()?->getMimeType();
+            $mimeType = $isDir ? null : ($item['file']['mimeType'] ?? null);
 
             return new FileAttributes(
                 $path,

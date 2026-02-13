@@ -33,44 +33,29 @@ class FindDriveIdCommand extends Command
         $siteUrl = $this->argument('site-url');
         $listAll = $this->option('list-all');
 
-        $this->info("Finder Drive ID for: {$siteUrl}");
+        $this->info("Finding Drive ID for: {$siteUrl}");
         $this->newLine();
 
         try {
             // Verify credentials are configured
             $this->checkCredentials();
 
-            // Create token manager
-            $tokenManager = new TokenManager(
-                app('cache.store'),
-                config('filesystems.disks.sharepoint.clientId'),
-                config('filesystems.disks.sharepoint.clientSecret'),
-                config('filesystems.disks.sharepoint.tenantId')
-            );
-
-            // Get access token
-            $this->info('Henter access token...');
-            $accessToken = $tokenManager->getAccessToken();
-
-            // Create Graph client
-            $graph = new Graph();
-            $graph->setAccessToken($accessToken);
-
-            // Create helper
-            $helper = new SharePointHelper($graph);
+            // Create helper (auto-creates Graph client)
+            $this->info('Connecting to Microsoft Graph...');
+            $helper = new SharePointHelper();
 
             if ($listAll) {
                 // List all drives
-                $this->info('Henter alle dokumentbiblioteker...');
+                $this->info('Fetching all document libraries...');
                 $drives = $helper->getAllDrivesForSite($siteUrl);
 
                 if (empty($drives)) {
-                    $this->warn('Ingen dokumentbiblioteker fundet.');
+                    $this->warn('No document libraries found.');
                     return 1;
                 }
 
                 $this->table(
-                    ['Navn', 'Drive ID', 'Type'],
+                    ['Name', 'Drive ID', 'Type'],
                     array_map(fn($drive) => [
                         $drive['name'],
                         $drive['id'],
@@ -79,46 +64,46 @@ class FindDriveIdCommand extends Command
                 );
 
                 $this->newLine();
-                $this->info('💡 Brug et af disse Drive ID\'er i din .env fil:');
+                $this->info('💡 Use one of these Drive IDs in your .env file:');
                 $this->line('MSGRAPH_DRIVE_ID=' . $drives[0]['id']);
 
             } else {
                 // Get default drive
-                $this->info('Finder standard dokumentbibliotek...');
+                $this->info('Finding default document library...');
                 $driveId = $helper->getDriveIdFromSiteUrl($siteUrl);
 
                 $this->newLine();
-                $this->info('✅ Drive ID fundet!');
+                $this->info('✅ Drive ID found!');
                 $this->newLine();
                 
-                $this->line('Tilføj denne linje til din .env fil:');
+                $this->line('Add this line to your .env file:');
                 $this->line('');
                 $this->line('MSGRAPH_DRIVE_ID=' . $driveId);
                 $this->line('');
 
                 // Test access
                 if ($helper->testDriveAccess($driveId)) {
-                    $this->info('✅ Adgang verificeret - du kan bruge dette Drive ID');
+                    $this->info('✅ Access verified - you can use this Drive ID');
                 } else {
-                    $this->warn('⚠️  Drive fundet, men adgang kunne ikke verificeres');
+                    $this->warn('⚠️  Drive found, but access could not be verified');
                 }
             }
 
             return 0;
 
         } catch (\InvalidArgumentException $e) {
-            $this->error('❌ Ugyldig URL: ' . $e->getMessage());
+            $this->error('❌ Invalid URL: ' . $e->getMessage());
             return 1;
         } catch (\RuntimeException $e) {
-            $this->error('❌ Fejl: ' . $e->getMessage());
+            $this->error('❌ Error: ' . $e->getMessage());
             $this->newLine();
-            $this->warn('Tjek at:');
-            $this->line('  1. Site URL er korrekt');
-            $this->line('  2. Du har adgang til sitet');
-            $this->line('  3. API permissions er korrekt sat i Azure AD');
+            $this->warn('Please check that:');
+            $this->line('  1. Site URL is correct');
+            $this->line('  2. You have access to the site');
+            $this->line('  3. API permissions are properly configured in Azure AD');
             return 1;
         } catch (\Exception $e) {
-            $this->error('❌ Uventet fejl: ' . $e->getMessage());
+            $this->error('❌ Unexpected error: ' . $e->getMessage());
             return 1;
         }
     }
@@ -142,12 +127,12 @@ class FindDriveIdCommand extends Command
         }
 
         if (!empty($missing)) {
-            $this->error('❌ Manglende konfiguration i .env:');
+            $this->error('❌ Missing configuration in .env:');
             foreach ($missing as $env) {
                 $this->line("  - {$env}");
             }
             $this->newLine();
-            throw new \RuntimeException('Konfigurer Microsoft Graph credentials først');
+            throw new \RuntimeException('Please configure Microsoft Graph credentials first');
         }
     }
 }

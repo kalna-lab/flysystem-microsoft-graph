@@ -289,24 +289,10 @@ foreach ($files as $file) {
 If you need to find Drive IDs programmatically (e.g., for multi-tenant setups):
 
 ```php
-use KalnaLab\FlysystemMicrosoftGraph\TokenManager;
 use KalnaLab\FlysystemMicrosoftGraph\Helpers\SharePointHelper;
-use Microsoft\Graph\Graph;
 
-// Create token manager
-$tokenManager = new TokenManager(
-    app('cache.store'),
-    config('filesystems.disks.sharepoint.clientId'),
-    config('filesystems.disks.sharepoint.clientSecret'),
-    config('filesystems.disks.sharepoint.tenantId')
-);
-
-// Get Graph client
-$graph = new Graph();
-$graph->setAccessToken($tokenManager->getAccessToken());
-
-// Create helper
-$helper = new SharePointHelper($graph);
+// Simple - auto-resolves credentials from config
+$helper = new SharePointHelper();
 
 // Find Drive ID from site URL
 $driveId = $helper->getDriveIdFromSiteUrl('https://contoso.sharepoint.com/sites/demo');
@@ -321,6 +307,32 @@ foreach ($drives as $drive) {
 if ($helper->testDriveAccess($driveId)) {
     echo "Access verified!\n";
 }
+```
+
+### Advanced: Custom Credentials
+
+If you need to use different credentials than those in config:
+
+```php
+use KalnaLab\FlysystemMicrosoftGraph\TokenManager;
+use KalnaLab\FlysystemMicrosoftGraph\Helpers\SharePointHelper;
+use Microsoft\Graph\Graph;
+
+// Create token manager with custom credentials
+$tokenManager = new TokenManager(
+    null, // Auto-resolve cache
+    'custom-client-id',
+    'custom-client-secret',
+    'custom-tenant-id'
+);
+
+// Create Graph client
+$graph = new Graph();
+$graph->setAccessToken($tokenManager->getAccessToken());
+
+// Pass to helper
+$helper = new SharePointHelper($graph);
+$driveId = $helper->getDriveIdFromSiteUrl('https://contoso.sharepoint.com/sites/demo');
 ```
 
 ## 🧪 Testing
@@ -446,7 +458,7 @@ This package is open-sourced software licensed under the [MIT license](LICENSE).
 
 ## 💡 Credits
 
-- Developed by Claus Hjort Bube / [Kalna](https://github.com/kalna-lab)
+- Developed by [Kalna](https://github.com/kalna-lab)
 - Built on [Flysystem](https://flysystem.thephpleague.com/) by Frank de Jonge
 - Powered by [Microsoft Graph API](https://docs.microsoft.com/en-us/graph/)
 

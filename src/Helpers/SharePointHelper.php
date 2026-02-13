@@ -5,13 +5,26 @@ namespace KalnaLab\FlysystemMicrosoftGraph\Helpers;
 use Microsoft\Graph\Graph;
 use Microsoft\Graph\Model\Site;
 use Microsoft\Graph\Model\Drive;
+use KalnaLab\FlysystemMicrosoftGraph\TokenManager;
 
 class SharePointHelper
 {
     private Graph $graph;
 
-    public function __construct(Graph $graph)
+    /**
+     * @param Graph|null $graph Microsoft Graph client (null = auto-create)
+     */
+    public function __construct(?Graph $graph = null)
     {
+        if ($graph === null) {
+            // Auto-create Graph client with TokenManager
+            $tokenManager = new TokenManager();
+            $accessToken = $tokenManager->getAccessToken();
+            
+            $graph = new Graph();
+            $graph->setAccessToken($accessToken);
+        }
+        
         $this->graph = $graph;
     }
 

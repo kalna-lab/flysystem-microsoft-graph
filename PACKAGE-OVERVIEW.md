@@ -217,7 +217,7 @@ Test with new Laravel versions:
 ## 📞 Support Channels
 
 - **GitHub Issues**: Bug reports and feature requests
-- **Email**: dev@kalna-lab.com
+- **Email**: contact@kalna.it
 - **Documentation**: README.md and INSTALLATION.md
 
 ## 📄 License

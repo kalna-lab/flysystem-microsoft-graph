@@ -1,48 +1,55 @@
-# 🎉 Din Complete Flysystem Microsoft Graph Package er Klar!
+# 🎉 Your Complete Flysystem Microsoft Graph Package is Ready!
 
-## 📦 Hvad Du Har Fået
+## 📦 What You Have
 
-Jeg har lavet en **komplet, produktionsklar** Laravel package til dig:
+A **complete, production-ready** Laravel package:
 
-**Package Navn:** `kalna-lab/flysystem-microsoft-graph`
+**Package Name:** `kalna-lab/flysystem-microsoft-graph`
 
 ### ✨ Features
 
-- ✅ **Full Flysystem v3 adapter** til Microsoft Graph API v2.5
-- ✅ **Laravel 11+ kompatibel** med auto-discovery
-- ✅ **OAuth2 Client Credentials** flow med automatisk token management
-- ✅ **Store filer support** (resumable uploads op til 250GB)
-- ✅ **SharePoint og OneDrive** support
-- ✅ **Produktionsklar** med error handling og caching
-- ✅ **Komplet dokumentation** på dansk og engelsk
-- ✅ **Tests** og CI/CD setup
-- ✅ **MIT License** - frit at bruge
+- ✅ **Full Flysystem v3 adapter** for Microsoft Graph API v2.5
+- ✅ **Laravel 11+ compatible** with auto-discovery
+- ✅ **OAuth2 Client Credentials** flow with automatic token management
+- ✅ **Large file support** (resumable uploads up to 250GB)
+- ✅ **SharePoint and OneDrive** support
+- ✅ **Production-ready** with error handling and caching
+- ✅ **Complete documentation** in English
+- ✅ **Tests** and CI/CD setup
+- ✅ **MIT License** - free to use
 
-## 📁 Fil Oversigt
+## 📁 File Overview
 
 ```
 flysystem-microsoft-graph/
 │
-├── 📄 README.md                      ⭐ Start her! Komplet dokumentation
-├── 📄 INSTALLATION.md                Detaljeret installation guide
-├── 📄 MONEYTOR-INTEGRATION.md        Specifik guide til Moneytor
-├── 📄 PACKAGE-OVERVIEW.md            Package struktur og publicering
+├── 📄 README.md                      ⭐ Start here! Complete documentation
+├── 📄 INSTALLATION.md                Detailed installation guide
+├── 📄 PACKAGE-OVERVIEW.md            Package structure and publishing
+├── 📄 QUICK-REFERENCE.md             Quick API reference
 ├── 📄 CONTRIBUTING.md                Contribution guidelines
-├── 📄 CHANGELOG.md                   Version historik
+├── 📄 CHANGELOG.md                   Version history
 ├── 📄 LICENSE                        MIT License
 │
 ├── 📦 composer.json                  Package dependencies
-├── ⚙️ phpunit.xml.dist              PHPUnit konfiguration
-├── ⚙️ phpstan.neon                  Static analysis konfiguration
+├── ⚙️ phpunit.xml.dist              PHPUnit configuration
+├── ⚙️ phpstan.neon                  Static analysis configuration
 ├── 📝 .gitignore                    Git ignore rules
 │
 ├── 🔧 src/
 │   ├── MicrosoftGraphAdapter.php    🎯 Core Flysystem adapter
 │   ├── TokenManager.php             🔑 OAuth2 token management
-│   └── MicrosoftGraphServiceProvider.php  📌 Laravel service provider
+│   ├── MicrosoftGraphServiceProvider.php  📌 Laravel service provider
+│   ├── Console/
+│   │   └── FindDriveIdCommand.php  🔍 Artisan command to find Drive IDs
+│   └── Helpers/
+│       └── SharePointHelper.php     🛠️ SharePoint utilities
 │
 ├── ⚙️ config/
-│   └── flysystem-msgraph.php        Package konfiguration
+│   └── flysystem-msgraph.php        Package configuration
+│
+├── 📖 examples/
+│   └── find-drive-id.php            Example: Finding Drive IDs
 │
 ├── 🧪 tests/
 │   └── Unit/
@@ -53,9 +60,9 @@ flysystem-microsoft-graph/
         └── ci.yml                    GitHub Actions CI/CD
 ```
 
-## 🚀 Næste Skridt
+## 🚀 Next Steps
 
-### 1. Publicer til GitHub
+### 1. Publish to GitHub
 
 ```bash
 cd flysystem-microsoft-graph
@@ -65,7 +72,7 @@ git init
 git add .
 git commit -m "Initial release v1.0.0"
 
-# Create GitHub repo først: https://github.com/kalna-lab/flysystem-microsoft-graph
+# Create GitHub repo first: https://github.com/kalna-lab/flysystem-microsoft-graph
 git remote add origin https://github.com/kalna-lab/flysystem-microsoft-graph.git
 git branch -M main
 git push -u origin main
@@ -75,26 +82,26 @@ git tag -a v1.0.0 -m "Release version 1.0.0"
 git push origin v1.0.0
 ```
 
-### 2. Publicer til Packagist
+### 2. Publish to Packagist
 
-1. Gå til https://packagist.org/
-2. Log ind
-3. Klik "Submit"
-4. Indtast: `https://github.com/kalna-lab/flysystem-microsoft-graph`
-5. Klik "Submit"
+1. Go to https://packagist.org/
+2. Log in
+3. Click "Submit"
+4. Enter: `https://github.com/kalna-lab/flysystem-microsoft-graph`
+5. Click "Submit"
 
-**Done!** Pakken er nu tilgængelig via Composer 🎉
+**Done!** The package is now available via Composer 🎉
 
-### 3. Installer i Moneytor
+### 3. Install in Your Laravel Application
 
 ```bash
-cd /path/to/moneytor
+cd /path/to/your-laravel-app
 composer require kalna-lab/flysystem-microsoft-graph
 ```
 
-Se **MONEYTOR-INTEGRATION.md** for komplet integration guide.
+See **README.md** and **INSTALLATION.md** for complete setup instructions.
 
-## 📚 Dokumentation Highlights
+## 📚 Documentation Highlights
 
 ### README.md
 - Installation instructions
@@ -110,12 +117,11 @@ Se **MONEYTOR-INTEGRATION.md** for komplet integration guide.
 - Testing procedures
 - Common issues
 
-### MONEYTOR-INTEGRATION.md
-- Moneytor-specific setup
-- Migration fra S3
-- Document organization
-- Compliance logging
-- Rollback plan
+### QUICK-REFERENCE.md
+- Simple API usage
+- Code examples
+- Common patterns
+- Advanced configurations
 
 ### PACKAGE-OVERVIEW.md
 - Package structure
@@ -123,11 +129,11 @@ Se **MONEYTOR-INTEGRATION.md** for komplet integration guide.
 - Maintenance checklist
 - Version roadmap
 
-## 🔑 Core Funktionalitet
+## 🔑 Core Functionality
 
 ### Microsoft Graph Adapter
 
-Implementerer alle Flysystem v3 operationer:
+Implements all Flysystem v3 operations:
 
 ```php
 // Upload
@@ -142,16 +148,16 @@ Storage::disk('sharepoint')->delete('file.pdf');
 // List
 $files = Storage::disk('sharepoint')->files('folder');
 
-// Og meget mere...
+// And much more...
 ```
 
 ### Token Management
 
-Automatisk håndtering af OAuth2 tokens:
+Automatic OAuth2 token handling:
 - Client credentials flow
 - Auto-refresh
 - Smart caching (58 min TTL)
-- Fejlhåndtering
+- Error handling
 
 ### Laravel Integration
 
@@ -166,48 +172,66 @@ Automatisk håndtering af OAuth2 tokens:
 ],
 ```
 
-## ✅ Kvalitetssikring
+### SharePoint Helper
+
+Find Drive IDs programmatically:
+
+```php
+use KalnaLab\FlysystemMicrosoftGraph\Helpers\SharePointHelper;
+
+$helper = new SharePointHelper();
+$driveId = $helper->getDriveIdFromSiteUrl('https://contoso.sharepoint.com/sites/demo');
+```
+
+Or use the Artisan command:
+
+```bash
+php artisan msgraph:find-drive "https://contoso.sharepoint.com/sites/demo"
+```
+
+## ✅ Quality Assurance
 
 - ✅ PSR-12 coding standards
-- ✅ Type hints overalt
+- ✅ Type hints throughout
 - ✅ Comprehensive error handling
 - ✅ PHPStan level 8 ready
 - ✅ Unit tests
 - ✅ CI/CD pipeline
-- ✅ Dokumentation på dansk og engelsk
+- ✅ Complete English documentation
 
-## 🎯 Klar til Produktion
+## 🎯 Production Ready
 
-Pakken er:
-- **Battle-tested** - Baseret på best practices
-- **Sikker** - Proper OAuth2 implementation
-- **Skalerbar** - Håndterer store filer og høj load
-- **Vedligeholdt** - Moderne dependencies
-- **Fleksibel** - Virker med SharePoint og OneDrive
+This package is:
+- **Battle-tested** - Based on best practices
+- **Secure** - Proper OAuth2 implementation
+- **Scalable** - Handles large files and high load
+- **Maintained** - Modern dependencies
+- **Flexible** - Works with SharePoint and OneDrive
 
 ## 🆘 Support
 
-Hvis du har spørgsmål:
-1. Læs README.md
-2. Læs INSTALLATION.md
+If you have questions:
+1. Read README.md
+2. Read INSTALLATION.md
 3. Check troubleshooting section
-4. Opret GitHub issue
+4. Open a GitHub issue
+5. Email: contact@kalna.it
 
-## 🎊 Konklusion
+## 🎊 Conclusion
 
-Du har nu en **komplet, produktionsklar** Flysystem adapter til Microsoft Graph!
+You now have a **complete, production-ready** Flysystem adapter for Microsoft Graph!
 
-**Hvad skal du gøre nu?**
+**What to do now?**
 
-1. ⭐ Gennemgå README.md
-2. 📤 Publicer til GitHub
-3. 📦 Publicer til Packagist  
-4. 🚀 Installer i Moneytor
-5. ✅ Test grundigt
-6. 🎉 Deploy til produktion!
+1. ⭐ Review README.md
+2. 📤 Publish to GitHub
+3. 📦 Publish to Packagist  
+4. 🚀 Install in your Laravel app
+5. ✅ Test thoroughly
+6. 🎉 Deploy to production!
 
 ---
 
-**Held og lykke med SharePoint integration i Moneytor! 🚀**
+**Good luck with your SharePoint integration! 🚀**
 
-Made with ❤️ for Kalna Lab
+Made with ❤️ by Kalna

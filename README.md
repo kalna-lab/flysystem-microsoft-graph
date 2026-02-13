@@ -68,7 +68,21 @@ The service provider will be automatically registered via Laravel's package disc
 
 You need the Drive ID of your SharePoint document library or OneDrive.
 
-#### Option A: Using Microsoft Graph Explorer (Recommended)
+#### Option A: Using the Artisan Command (Easiest!)
+
+After installing the package and configuring credentials (steps 1-3), run:
+
+```bash
+# Find default drive for a SharePoint site
+php artisan msgraph:find-drive "https://contoso.sharepoint.com/sites/yoursite"
+
+# List all drives for a site
+php artisan msgraph:find-drive "https://contoso.sharepoint.com/sites/yoursite" --list-all
+```
+
+The command will output your Drive ID ready to copy into `.env`.
+
+#### Option B: Using Microsoft Graph Explorer
 
 1. Go to [Graph Explorer](https://developer.microsoft.com/en-us/graph/graph-explorer)
 2. Sign in with your account
@@ -270,6 +284,45 @@ foreach ($files as $file) {
 }
 ```
 
+## 🔍 Finding Drive ID Programmatically
+
+If you need to find Drive IDs programmatically (e.g., for multi-tenant setups):
+
+```php
+use KalnaLab\FlysystemMicrosoftGraph\TokenManager;
+use KalnaLab\FlysystemMicrosoftGraph\Helpers\SharePointHelper;
+use Microsoft\Graph\Graph;
+
+// Create token manager
+$tokenManager = new TokenManager(
+    app('cache.store'),
+    config('filesystems.disks.sharepoint.clientId'),
+    config('filesystems.disks.sharepoint.clientSecret'),
+    config('filesystems.disks.sharepoint.tenantId')
+);
+
+// Get Graph client
+$graph = new Graph();
+$graph->setAccessToken($tokenManager->getAccessToken());
+
+// Create helper
+$helper = new SharePointHelper($graph);
+
+// Find Drive ID from site URL
+$driveId = $helper->getDriveIdFromSiteUrl('https://contoso.sharepoint.com/sites/demo');
+
+// List all drives for a site
+$drives = $helper->getAllDrivesForSite('https://contoso.sharepoint.com/sites/demo');
+foreach ($drives as $drive) {
+    echo "{$drive['name']}: {$drive['id']}\n";
+}
+
+// Test drive access
+if ($helper->testDriveAccess($driveId)) {
+    echo "Access verified!\n";
+}
+```
+
 ## 🧪 Testing
 
 You can use Laravel's Storage fake for testing:
@@ -393,7 +446,7 @@ This package is open-sourced software licensed under the [MIT license](LICENSE).
 
 ## 💡 Credits
 
-- Developed by Claus Hjort Bube / [KalnaIT](https://github.com/kalna-lab)
+- Developed by Claus Hjort Bube / [Kalna](https://github.com/kalna-lab)
 - Built on [Flysystem](https://flysystem.thephpleague.com/) by Frank de Jonge
 - Powered by [Microsoft Graph API](https://docs.microsoft.com/en-us/graph/)
 
@@ -404,4 +457,4 @@ This package is open-sourced software licensed under the [MIT license](LICENSE).
 
 ---
 
-**Made with ❤️ by KalnaIT**
+**Made with ❤️ by Kalna**

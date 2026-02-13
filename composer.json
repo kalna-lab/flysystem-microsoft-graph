@@ -15,14 +15,14 @@
     ],
     "authors": [
         {
-            "name": "KalnaIT",
+            "name": "Kalna",
             "email": "contact@kalna.it"
         }
     ],
     "require": {
         "php": "^8.3",
         "league/flysystem": "^3.0",
-        "microsoft/microsoft-graph": "^2.5",
+        "microsoft/microsoft-graph": "^2.0",
         "guzzlehttp/guzzle": "^7.0",
         "illuminate/support": "^11.0",
         "illuminate/cache": "^11.0"

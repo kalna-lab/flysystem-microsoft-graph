@@ -2,7 +2,9 @@
 
 namespace KalnaLab\FlysystemMicrosoftGraph;
 
+use GuzzleHttp\Exception\ClientException;
 use League\Flysystem\Config;
+use League\Flysystem\DirectoryAttributes;
 use League\Flysystem\FileAttributes;
 use League\Flysystem\FilesystemAdapter;
 use League\Flysystem\PathPrefixer;
@@ -10,15 +12,15 @@ use League\Flysystem\UnableToCopyFile;
 use League\Flysystem\UnableToCreateDirectory;
 use League\Flysystem\UnableToDeleteDirectory;
 use League\Flysystem\UnableToDeleteFile;
+use League\Flysystem\UnableToGenerateTemporaryUrl;
 use League\Flysystem\UnableToMoveFile;
 use League\Flysystem\UnableToReadFile;
 use League\Flysystem\UnableToRetrieveMetadata;
 use League\Flysystem\UnableToSetVisibility;
 use League\Flysystem\UnableToWriteFile;
-use League\Flysystem\DirectoryAttributes;
-use GuzzleHttp\Exception\ClientException;
+use League\Flysystem\UrlGeneration\TemporaryUrlGenerator;
 
-class MicrosoftGraphAdapter implements FilesystemAdapter
+class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
 {
     private GraphClient $graph;
     private string $driveId;
@@ -428,6 +430,52 @@ class MicrosoftGraphAdapter implements FilesystemAdapter
             throw UnableToRetrieveMetadata::create($path, 'metadata', $e->getMessage(), $e);
         } catch (\Exception $e) {
             throw UnableToRetrieveMetadata::create($path, 'metadata', $e->getMessage(), $e);
+        }
+    }
+
+    /**
+     * Generate a temporary URL for a file
+     *
+     * @param string $path File path
+     * @param \DateTimeInterface $expiresAt Expiration time
+     * @param Config $config Additional configuration
+     * @return string Temporary URL
+     */
+    public function temporaryUrl(string $path, \DateTimeInterface $expiresAt, Config $config): string
+    {
+        try {
+            $prefixedPath = $this->prefixer->prefixPath($path);
+
+            // First, get the item to get its ID
+            $itemEndpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}";
+            $item = $this->graph->createRequest('GET', $itemEndpoint)
+                ->execute();
+
+            if (!isset($item['id'])) {
+                throw UnableToGenerateTemporaryUrl::noGeneratorConfigured($path);
+            }
+
+            // Create a sharing link with expiration
+            $createLinkEndpoint = "/drives/{$this->driveId}/items/{$item['id']}/createLink";
+
+            $response = $this->graph->createRequest('POST', $createLinkEndpoint)
+                ->attachBody([
+                    'type' => 'view',
+                    'scope' => 'anonymous',
+                    'expirationDateTime' => $expiresAt->format('Y-m-d\TH:i:s\Z')
+                ])
+                ->execute();
+
+            if (!isset($response['link']['webUrl'])) {
+                throw UnableToGenerateTemporaryUrl::noGeneratorConfigured($path);
+            }
+
+            return $response['link']['webUrl'];
+
+        } catch (ClientException $e) {
+            throw UnableToGenerateTemporaryUrl::dueToError($path, $e);
+        } catch (\Exception $e) {
+            throw UnableToGenerateTemporaryUrl::dueToError($path, $e);
         }
     }
 }

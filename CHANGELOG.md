@@ -2,7 +2,7 @@
 
 All notable changes to `kalna-lab/flysystem-microsoft-graph` will be documented in this file.
 
-## [1.0.0] - 2024-02-11
+## [1.0.0] - 2026-02-13
 
 ### Added
 - Initial release

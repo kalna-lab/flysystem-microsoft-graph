@@ -3,8 +3,8 @@
 namespace KalnaLab\FlysystemMicrosoftGraph;
 
 use Illuminate\Filesystem\FilesystemAdapter;
-use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\ServiceProvider;
 use League\Flysystem\Filesystem;
 
 class MicrosoftGraphServiceProvider extends ServiceProvider
@@ -15,7 +15,7 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(
-            __DIR__.'/../config/flysystem-msgraph.php',
+            __DIR__ . '/../config/flysystem-msgraph.php',
             'flysystem-msgraph'
         );
 
@@ -34,7 +34,7 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
     {
         // Publish configuration
         $this->publishes([
-            __DIR__.'/../config/flysystem-msgraph.php' => config_path('flysystem-msgraph.php'),
+            __DIR__ . '/../config/flysystem-msgraph.php' => config_path('flysystem-msgraph.php'),
         ], 'flysystem-msgraph-config');
 
         // Register the Microsoft Graph filesystem driver

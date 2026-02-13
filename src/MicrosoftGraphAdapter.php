@@ -17,23 +17,21 @@ use League\Flysystem\UnableToRetrieveMetadata;
 use League\Flysystem\UnableToSetVisibility;
 use League\Flysystem\UnableToWriteFile;
 use League\Flysystem\DirectoryAttributes;
-use Microsoft\Graph\Graph;
-use Microsoft\Graph\Model\DriveItem;
 use GuzzleHttp\Psr7\Stream;
 use GuzzleHttp\Exception\ClientException;
 
 class MicrosoftGraphAdapter implements FilesystemAdapter
 {
-    private Graph $graph;
+    private GraphClient $graph;
     private string $driveId;
     private PathPrefixer $prefixer;
     
     /**
-     * @param Graph $graph Microsoft Graph client instance
+     * @param GraphClient $graph Microsoft Graph client instance
      * @param string $driveId Drive ID (SharePoint document library or OneDrive)
      * @param string $prefix Optional path prefix within the drive
      */
-    public function __construct(Graph $graph, string $driveId, string $prefix = '')
+    public function __construct(GraphClient $graph, string $driveId, string $prefix = '')
     {
         $this->graph = $graph;
         $this->driveId = $driveId;

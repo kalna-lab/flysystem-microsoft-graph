@@ -4,7 +4,6 @@ namespace KalnaLab\FlysystemMicrosoftGraph\Helpers;
 
 use Microsoft\Graph\GraphServiceClient;
 use Microsoft\Kiota\Authentication\Oauth\ClientCredentialContext;
-use KalnaLab\FlysystemMicrosoftGraph\TokenManager;
 
 class SharePointHelper
 {
@@ -16,7 +15,7 @@ class SharePointHelper
     public function __construct(?GraphServiceClient $graphServiceClient = null)
     {
         if ($graphServiceClient === null) {
-            // Get credentials from TokenManager's config
+            // Auto-create GraphServiceClient from config
             $clientId = config('filesystems.disks.sharepoint.clientId') 
                 ?? config('flysystem-msgraph.defaults.client_id');
             $clientSecret = config('filesystems.disks.sharepoint.clientSecret') 

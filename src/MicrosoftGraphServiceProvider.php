@@ -5,7 +5,6 @@ namespace KalnaLab\FlysystemMicrosoftGraph;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Storage;
 use League\Flysystem\Filesystem;
-use Microsoft\Graph\Graph;
 
 class MicrosoftGraphServiceProvider extends ServiceProvider
 {
@@ -67,13 +66,12 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
         // Get access token
         $accessToken = $tokenManager->getAccessToken();
 
-        // Create Microsoft Graph client
-        $graph = new Graph();
-        $graph->setAccessToken($accessToken);
+        // Create GraphClient (compatible with old Graph API)
+        $graphClient = new GraphClient($accessToken);
 
         // Create adapter
         $adapter = new MicrosoftGraphAdapter(
-            $graph,
+            $graphClient,
             $config['driveId'],
             $config['prefix'] ?? ''
         );

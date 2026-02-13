@@ -19,6 +19,7 @@ use League\Flysystem\UnableToWriteFile;
 use League\Flysystem\DirectoryAttributes;
 use GuzzleHttp\Psr7\Stream;
 use GuzzleHttp\Exception\ClientException;
+use Microsoft\Graph\Generated\Models\DriveItem;
 
 class MicrosoftGraphAdapter implements FilesystemAdapter
 {

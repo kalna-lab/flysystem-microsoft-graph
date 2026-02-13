@@ -3,9 +3,7 @@
 namespace KalnaLab\FlysystemMicrosoftGraph\Console;
 
 use Illuminate\Console\Command;
-use KalnaLab\FlysystemMicrosoftGraph\TokenManager;
 use KalnaLab\FlysystemMicrosoftGraph\Helpers\SharePointHelper;
-use Microsoft\Graph\Graph;
 
 class FindDriveIdCommand extends Command
 {

@@ -2,30 +2,44 @@
 
 namespace KalnaLab\FlysystemMicrosoftGraph\Helpers;
 
-use Microsoft\Graph\Graph;
-use Microsoft\Graph\Model\Site;
-use Microsoft\Graph\Model\Drive;
+use Microsoft\Graph\GraphServiceClient;
+use Microsoft\Kiota\Authentication\Oauth\ClientCredentialContext;
 use KalnaLab\FlysystemMicrosoftGraph\TokenManager;
 
 class SharePointHelper
 {
-    private Graph $graph;
+    private GraphServiceClient $graphServiceClient;
 
     /**
-     * @param Graph|null $graph Microsoft Graph client (null = auto-create)
+     * @param GraphServiceClient|null $graphServiceClient Microsoft Graph Service Client (null = auto-create)
      */
-    public function __construct(?Graph $graph = null)
+    public function __construct(?GraphServiceClient $graphServiceClient = null)
     {
-        if ($graph === null) {
-            // Auto-create Graph client with TokenManager
-            $tokenManager = new TokenManager();
-            $accessToken = $tokenManager->getAccessToken();
+        if ($graphServiceClient === null) {
+            // Get credentials from TokenManager's config
+            $clientId = config('filesystems.disks.sharepoint.clientId') 
+                ?? config('flysystem-msgraph.defaults.client_id');
+            $clientSecret = config('filesystems.disks.sharepoint.clientSecret') 
+                ?? config('flysystem-msgraph.defaults.client_secret');
+            $tenantId = config('filesystems.disks.sharepoint.tenantId') 
+                ?? config('flysystem-msgraph.defaults.tenant_id');
             
-            $graph = new Graph();
-            $graph->setAccessToken($accessToken);
+            if (!$clientId || !$clientSecret || !$tenantId) {
+                throw new \InvalidArgumentException('Microsoft Graph credentials not configured');
+            }
+            
+            // Create authentication context
+            $tokenRequestContext = new ClientCredentialContext(
+                $tenantId,
+                $clientId,
+                $clientSecret
+            );
+            
+            // Create GraphServiceClient
+            $graphServiceClient = new GraphServiceClient($tokenRequestContext);
         }
         
-        $this->graph = $graph;
+        $this->graphServiceClient = $graphServiceClient;
     }
 
     /**
@@ -69,27 +83,35 @@ class SharePointHelper
         // Example: contoso.sharepoint.com:/sites/demo
         $siteIdentifier = $hostname . ':/' . $sitePath;
 
-        // Get site using the identifier
-        $site = $this->graph
-            ->createRequest('GET', "/sites/{$siteIdentifier}")
-            ->setReturnType(Site::class)
-            ->execute();
+        try {
+            // Get site using the identifier
+            $site = $this->graphServiceClient
+                ->sites()
+                ->bySiteId($siteIdentifier)
+                ->get()
+                ->wait();
 
-        if (!$site || !$site->getId()) {
-            throw new \RuntimeException('Site not found');
+            if (!$site || !$site->getId()) {
+                throw new \RuntimeException('Site not found');
+            }
+
+            // Get default drive for the site
+            $drive = $this->graphServiceClient
+                ->sites()
+                ->bySiteId($site->getId())
+                ->drive()
+                ->get()
+                ->wait();
+
+            if (!$drive || !$drive->getId()) {
+                throw new \RuntimeException('Drive not found for site');
+            }
+
+            return $drive->getId();
+            
+        } catch (\Exception $e) {
+            throw new \RuntimeException("Failed to lookup site: {$e->getMessage()}", 0, $e);
         }
-
-        // Get default drive for the site
-        $drive = $this->graph
-            ->createRequest('GET', "/sites/{$site->getId()}/drive")
-            ->setReturnType(Drive::class)
-            ->execute();
-
-        if (!$drive || !$drive->getId()) {
-            throw new \RuntimeException('Drive not found for site');
-        }
-
-        return $drive->getId();
     }
 
     /**
@@ -103,39 +125,47 @@ class SharePointHelper
         // Extract site name from URL for search
         $siteName = basename(parse_url($siteUrl, PHP_URL_PATH));
 
-        // Search for sites
-        $response = $this->graph
-            ->createRequest('GET', "/sites?search={$siteName}")
-            ->execute();
+        try {
+            // Search for sites
+            $searchResults = $this->graphServiceClient
+                ->sites()
+                ->get()
+                ->wait();
 
-        if (!isset($response['value']) || empty($response['value'])) {
-            throw new \RuntimeException("No site found matching: {$siteName}");
-        }
-
-        // Find exact match
-        $site = null;
-        foreach ($response['value'] as $foundSite) {
-            if (isset($foundSite['webUrl']) && strpos($foundSite['webUrl'], $siteUrl) !== false) {
-                $site = $foundSite;
-                break;
+            if (!$searchResults || !$searchResults->getValue()) {
+                throw new \RuntimeException("No sites found");
             }
+
+            // Find matching site
+            $site = null;
+            foreach ($searchResults->getValue() as $foundSite) {
+                if ($foundSite->getWebUrl() && strpos($foundSite->getWebUrl(), $siteUrl) !== false) {
+                    $site = $foundSite;
+                    break;
+                }
+            }
+
+            if (!$site || !$site->getId()) {
+                throw new \RuntimeException("Site not found: {$siteUrl}");
+            }
+
+            // Get default drive
+            $drive = $this->graphServiceClient
+                ->sites()
+                ->bySiteId($site->getId())
+                ->drive()
+                ->get()
+                ->wait();
+
+            if (!$drive || !$drive->getId()) {
+                throw new \RuntimeException('Drive not found for site');
+            }
+
+            return $drive->getId();
+            
+        } catch (\Exception $e) {
+            throw new \RuntimeException("Failed to search for site: {$e->getMessage()}", 0, $e);
         }
-
-        if (!$site || !isset($site['id'])) {
-            throw new \RuntimeException("Site not found: {$siteUrl}");
-        }
-
-        // Get default drive
-        $drive = $this->graph
-            ->createRequest('GET', "/sites/{$site['id']}/drive")
-            ->setReturnType(Drive::class)
-            ->execute();
-
-        if (!$drive || !$drive->getId()) {
-            throw new \RuntimeException('Drive not found for site');
-        }
-
-        return $drive->getId();
     }
 
     /**
@@ -151,34 +181,43 @@ class SharePointHelper
         $sitePath = trim($parsedUrl['path'], '/');
         $siteIdentifier = $hostname . ':/' . $sitePath;
 
-        // Get site
-        $site = $this->graph
-            ->createRequest('GET', "/sites/{$siteIdentifier}")
-            ->setReturnType(Site::class)
-            ->execute();
+        try {
+            // Get site
+            $site = $this->graphServiceClient
+                ->sites()
+                ->bySiteId($siteIdentifier)
+                ->get()
+                ->wait();
 
-        if (!$site || !$site->getId()) {
-            throw new \RuntimeException('Site not found');
-        }
-
-        // Get all drives for the site
-        $response = $this->graph
-            ->createRequest('GET', "/sites/{$site->getId()}/drives")
-            ->execute();
-
-        $drives = [];
-        if (isset($response['value'])) {
-            foreach ($response['value'] as $drive) {
-                $drives[] = [
-                    'id' => $drive['id'] ?? null,
-                    'name' => $drive['name'] ?? null,
-                    'webUrl' => $drive['webUrl'] ?? null,
-                    'driveType' => $drive['driveType'] ?? null,
-                ];
+            if (!$site || !$site->getId()) {
+                throw new \RuntimeException('Site not found');
             }
-        }
 
-        return $drives;
+            // Get all drives for the site
+            $drivesResult = $this->graphServiceClient
+                ->sites()
+                ->bySiteId($site->getId())
+                ->drives()
+                ->get()
+                ->wait();
+
+            $drives = [];
+            if ($drivesResult && $drivesResult->getValue()) {
+                foreach ($drivesResult->getValue() as $drive) {
+                    $drives[] = [
+                        'id' => $drive->getId(),
+                        'name' => $drive->getName(),
+                        'webUrl' => $drive->getWebUrl(),
+                        'driveType' => $drive->getDriveType()?->value ?? null,
+                    ];
+                }
+            }
+
+            return $drives;
+            
+        } catch (\Exception $e) {
+            throw new \RuntimeException("Failed to get drives for site: {$e->getMessage()}", 0, $e);
+        }
     }
 
     /**
@@ -190,12 +229,14 @@ class SharePointHelper
     public function testDriveAccess(string $driveId): bool
     {
         try {
-            $drive = $this->graph
-                ->createRequest('GET', "/drives/{$driveId}")
-                ->setReturnType(Drive::class)
-                ->execute();
+            $drive = $this->graphServiceClient
+                ->drives()
+                ->byDriveId($driveId)
+                ->get()
+                ->wait();
 
             return $drive && $drive->getId() !== null;
+            
         } catch (\Exception $e) {
             return false;
         }

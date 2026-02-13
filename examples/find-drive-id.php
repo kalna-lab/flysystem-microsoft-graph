@@ -11,7 +11,7 @@ use KalnaLab\FlysystemMicrosoftGraph\Helpers\SharePointHelper;
 
 // Example 1: Simple - Find drive ID from site URL
 try {
-    // Auto-resolves credentials from config
+    // Auto-creates GraphServiceClient from config
     $helper = new SharePointHelper();
     
     $siteUrl = 'https://contoso.sharepoint.com/sites/demo';
@@ -53,24 +53,23 @@ try {
     echo "Error: {$e->getMessage()}\n";
 }
 
-// Example 4: Advanced - With custom Graph client (optional)
-use KalnaLab\FlysystemMicrosoftGraph\TokenManager;
-use Microsoft\Graph\Graph;
+// Example 4: Advanced - With custom GraphServiceClient
+use Microsoft\Graph\GraphServiceClient;
+use Microsoft\Kiota\Authentication\Oauth\ClientCredentialContext;
 
 try {
-    // If you want to use custom credentials (not from config)
-    $tokenManager = new TokenManager(
-        null, // Auto-resolve cache
+    // Create custom authentication context
+    $tokenRequestContext = new ClientCredentialContext(
+        'custom-tenant-id',
         'custom-client-id',
-        'custom-client-secret',
-        'custom-tenant-id'
+        'custom-client-secret'
     );
     
-    $graph = new Graph();
-    $graph->setAccessToken($tokenManager->getAccessToken());
+    // Create GraphServiceClient
+    $graphServiceClient = new GraphServiceClient($tokenRequestContext);
     
-    // Pass custom Graph client
-    $helper = new SharePointHelper($graph);
+    // Pass custom client to helper
+    $helper = new SharePointHelper($graphServiceClient);
     $driveId = $helper->getDriveIdFromSiteUrl('https://contoso.sharepoint.com/sites/demo');
     
     echo "\nDrive ID (custom credentials): {$driveId}\n";

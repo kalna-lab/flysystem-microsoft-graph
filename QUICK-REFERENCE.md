@@ -139,24 +139,22 @@ class SharePointService
 If you need to use different credentials than those in config:
 
 ```php
-use KalnaLab\FlysystemMicrosoftGraph\TokenManager;
 use KalnaLab\FlysystemMicrosoftGraph\Helpers\SharePointHelper;
-use Microsoft\Graph\Graph;
+use Microsoft\Graph\GraphServiceClient;
+use Microsoft\Kiota\Authentication\Oauth\ClientCredentialContext;
 
-// TokenManager with custom credentials
-$tokenManager = new TokenManager(
-    null, // Auto-resolve cache
+// Create authentication context with custom credentials
+$tokenRequestContext = new ClientCredentialContext(
+    'custom-tenant-id',
     'custom-client-id',
-    'custom-client-secret',
-    'custom-tenant-id'
+    'custom-client-secret'
 );
 
-// Graph client
-$graph = new Graph();
-$graph->setAccessToken($tokenManager->getAccessToken());
+// Create GraphServiceClient
+$graphServiceClient = new GraphServiceClient($tokenRequestContext);
 
-// Helper with custom Graph client
-$helper = new SharePointHelper($graph);
+// Helper with custom client
+$helper = new SharePointHelper($graphServiceClient);
 $driveId = $helper->getDriveIdFromSiteUrl($siteUrl);
 ```
 

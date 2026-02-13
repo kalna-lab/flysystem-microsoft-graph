@@ -314,24 +314,22 @@ if ($helper->testDriveAccess($driveId)) {
 If you need to use different credentials than those in config:
 
 ```php
-use KalnaLab\FlysystemMicrosoftGraph\TokenManager;
 use KalnaLab\FlysystemMicrosoftGraph\Helpers\SharePointHelper;
-use Microsoft\Graph\Graph;
+use Microsoft\Graph\GraphServiceClient;
+use Microsoft\Kiota\Authentication\Oauth\ClientCredentialContext;
 
-// Create token manager with custom credentials
-$tokenManager = new TokenManager(
-    null, // Auto-resolve cache
+// Create authentication context with custom credentials
+$tokenRequestContext = new ClientCredentialContext(
+    'custom-tenant-id',
     'custom-client-id',
-    'custom-client-secret',
-    'custom-tenant-id'
+    'custom-client-secret'
 );
 
-// Create Graph client
-$graph = new Graph();
-$graph->setAccessToken($tokenManager->getAccessToken());
+// Create GraphServiceClient
+$graphServiceClient = new GraphServiceClient($tokenRequestContext);
 
 // Pass to helper
-$helper = new SharePointHelper($graph);
+$helper = new SharePointHelper($graphServiceClient);
 $driveId = $helper->getDriveIdFromSiteUrl('https://contoso.sharepoint.com/sites/demo');
 ```
 

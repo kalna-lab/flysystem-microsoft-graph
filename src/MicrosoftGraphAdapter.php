@@ -116,6 +116,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
                     'created_by' => $item['createdBy']['user']['displayName'] ?? null,
                     'modified_at' => $lastModified,    // Modified timestamp
                     'modified_by' => $item['lastModifiedBy']['user']['displayName'] ?? null,
+                    'raw' => $item,
                 ]
             );
         } catch (ClientException $e) {

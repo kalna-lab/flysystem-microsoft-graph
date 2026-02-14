@@ -10,7 +10,7 @@ class SharePointDownloadController
 {
     /**
      * Download file from SharePoint using signed URL
-     * 
+     *
      * URL format: /sharepoint/download/{itemId}?expires={timestamp}&signature={hash}
      */
     public function __invoke(Request $request, string $itemId): StreamedResponse
@@ -20,17 +20,17 @@ class SharePointDownloadController
 
         // Get file from SharePoint using item ID
         $disk = Storage::disk('sharepoint');
-        
+
         // Get file metadata from SharePoint
         $file = $this->getFileByItemId($itemId, $disk);
-        
+
         if (!$file) {
             abort(404, 'File not found');
         }
 
         // Stream file from SharePoint
         $stream = $disk->readStream($file['path']);
-        
+
         return response()->stream(function () use ($stream) {
             fpassthru($stream);
             if (is_resource($stream)) {
@@ -63,7 +63,7 @@ class SharePointDownloadController
 
         // Validate signature
         $validSignature = hash_hmac('sha256', $itemId . $expires, config('app.key'));
-        
+
         if (!hash_equals($validSignature, $signature)) {
             abort(403, 'Invalid signature');
         }
@@ -77,7 +77,7 @@ class SharePointDownloadController
         try {
             // Get adapter to access Graph API directly
             $adapter = $disk->getAdapter();
-            
+
             // Access the underlying MicrosoftGraphAdapter
             // The FilesystemAdapter wraps our adapter, so we need to get it
             if (method_exists($adapter, 'getAdapter')) {
@@ -86,8 +86,11 @@ class SharePointDownloadController
                 $graphAdapter = $adapter;
             }
 
-            // Get item metadata from SharePoint
-            $response = $graphAdapter->graph->createRequest('GET', "/drives/{$graphAdapter->driveId}/items/{$itemId}")
+            // Get item metadata from SharePoint using getter methods
+            $graphClient = $graphAdapter->getGraphClient();
+            $driveId = $graphAdapter->getDriveId();
+
+            $response = $graphClient->createRequest('GET', "/drives/{$driveId}/items/{$itemId}")
                 ->execute();
 
             if (!isset($response['name'])) {
@@ -97,14 +100,13 @@ class SharePointDownloadController
             // Extract path from parentReference
             $parentPath = $response['parentReference']['path'] ?? '';
             $parentPath = preg_replace('#^/drives/[^/]+/root:#', '', $parentPath);
-            
+
             // Handle prefix if set
             $path = ltrim($parentPath . '/' . $response['name'], '/');
-            
+
             // Strip prefix if adapter has one
-            if (isset($graphAdapter->prefixer)) {
-                $path = $graphAdapter->prefixer->stripPrefix($path);
-            }
+            $prefixer = $graphAdapter->getPrefixer();
+            $path = $prefixer->stripPrefix($path);
 
             return [
                 'path' => $path,

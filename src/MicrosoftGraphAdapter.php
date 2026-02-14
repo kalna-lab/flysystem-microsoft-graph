@@ -38,6 +38,36 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
         $this->prefixer = new PathPrefixer($prefix);
     }
 
+    /**
+     * Get the GraphClient instance
+     *
+     * @return GraphClient
+     */
+    public function getGraphClient(): GraphClient
+    {
+        return $this->graph;
+    }
+
+    /**
+     * Get the drive ID
+     *
+     * @return string
+     */
+    public function getDriveId(): string
+    {
+        return $this->driveId;
+    }
+
+    /**
+     * Get the path prefixer
+     *
+     * @return PathPrefixer
+     */
+    public function getPrefixer(): PathPrefixer
+    {
+        return $this->prefixer;
+    }
+
     public function fileExists(string $path): bool
     {
         try {

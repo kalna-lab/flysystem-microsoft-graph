@@ -450,7 +450,12 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
                 $mimeType,
                 [
                     'type' => $isDir ? 'dir' : 'file',
-                    'timestamp' => $lastModified
+                    'timestamp' => $lastModified,
+                    'item_id' => $item['id'] ?? null,           // SharePoint GUID
+                    'web_url' => $item['webUrl'] ?? null,       // Direct SharePoint URL
+                    'created_at' => $item['createdDateTime'] ?? null,
+                    'created_by' => $item['createdBy']['user']['displayName'] ?? null,
+                    'modified_by' => $item['lastModifiedBy']['user']['displayName'] ?? null,
                 ]
             );
         } catch (ClientException $e) {

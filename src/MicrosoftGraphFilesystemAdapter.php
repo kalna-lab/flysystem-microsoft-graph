@@ -3,6 +3,7 @@
 namespace KalnaLab\FlysystemMicrosoftGraph;
 
 use Illuminate\Filesystem\FilesystemAdapter;
+use League\Flysystem\FileAttributes;
 use League\Flysystem\FilesystemOperator;
 
 class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
@@ -39,25 +40,14 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
 
     /**
      * Get complete file metadata including SharePoint-specific fields
-     *
-     * @param string $path
-     * @return array
      */
-    public function metadata($path)
+    public function metadata($path): FileAttributes
     {
         // Use reflection to access private getMetadata method
         $reflection = new \ReflectionMethod($this->adapter, 'getMetadata');
         $reflection->setAccessible(true);
 
-        $fileAttributes = $reflection->invoke($this->adapter, $path);
-
-        return [
-            'path' => $fileAttributes->path(),
-            'size' => $fileAttributes->fileSize(),
-            'timestamp' => $fileAttributes->lastModified(),
-            'mime_type' => $fileAttributes->mimeType(),
-            'extra' => $fileAttributes->extraMetadata(),
-        ];
+        return $reflection->invoke($this->adapter, $path);
     }
 
     /**
@@ -69,7 +59,7 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
     public function getItemId($path)
     {
         $metadata = $this->metadata($path);
-        return $metadata['extra']['item_id'] ?? null;
+        return $metadata->extraMetadata()['item_id'] ?? null;
     }
 
     /**
@@ -81,6 +71,6 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
     public function getWebUrl($path)
     {
         $metadata = $this->metadata($path);
-        return $metadata['extra']['web_url'] ?? null;
+        return $metadata->extraMetadata()['web_url'] ?? null;
     }
 }

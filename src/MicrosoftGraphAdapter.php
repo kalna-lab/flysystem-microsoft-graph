@@ -520,10 +520,14 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
             $expires = $expiresAt->getTimestamp();
             $signature = hash_hmac('sha256', $item['id'] . $expires, config('app.key'));
 
-            return url("/sharepoint/download/{$item['id']}", [
+            // Build URL with query parameters
+            $baseUrl = url("/sharepoint/download/{$item['id']}");
+            $queryString = http_build_query([
                 'expires' => $expires,
                 'signature' => $signature,
             ]);
+
+            return $baseUrl . '?' . $queryString;
 
         } catch (ClientException $e) {
             throw UnableToGenerateTemporaryUrl::dueToError($path, $e);

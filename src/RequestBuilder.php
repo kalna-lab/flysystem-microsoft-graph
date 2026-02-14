@@ -21,7 +21,8 @@ class RequestBuilder
         string $accessToken,
         string $method,
         string $endpoint
-    ) {
+    )
+    {
         $this->httpClient = $httpClient;
         $this->accessToken = $accessToken;
         $this->method = $method;

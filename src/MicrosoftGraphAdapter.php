@@ -436,17 +436,36 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
     /**
      * Generate a temporary URL for a file
      *
+     * Supports two modes (configurable via config or parameter):
+     * - 'share': Creates anonymous SharePoint sharing link (requires sharing enabled)
+     * - 'download': Creates signed download route via application (default, more secure)
+     *
      * @param string $path File path
      * @param \DateTimeInterface $expiresAt Expiration time
-     * @param Config $config Additional configuration
+     * @param Config $config Additional configuration (mode: 'share'|'download' overrides config)
      * @return string Temporary URL
      */
     public function temporaryUrl(string $path, \DateTimeInterface $expiresAt, Config $config): string
     {
+        // Get mode from parameter or fall back to config
+        $mode = $config->get('mode') ?? config('flysystem-msgraph.temporary_url_type', 'share');
+
+        if ($mode === 'share') {
+            return $this->createSharingLink($path, $expiresAt);
+        }
+
+        return $this->createDownloadUrl($path, $expiresAt);
+    }
+
+    /**
+     * Create SharePoint sharing link (requires sharing enabled on site)
+     */
+    private function createSharingLink(string $path, \DateTimeInterface $expiresAt): string
+    {
         try {
             $prefixedPath = $this->prefixer->prefixPath($path);
 
-            // First, get the item to get its ID
+            // Get the item to get its ID
             $itemEndpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}";
             $item = $this->graph->createRequest('GET', $itemEndpoint)
                 ->execute();
@@ -471,6 +490,40 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
             }
 
             return $response['link']['webUrl'];
+
+        } catch (ClientException $e) {
+            throw UnableToGenerateTemporaryUrl::dueToError($path, $e);
+        } catch (\Exception $e) {
+            throw UnableToGenerateTemporaryUrl::dueToError($path, $e);
+        }
+    }
+
+    /**
+     * Create signed download URL via application route
+     */
+    private function createDownloadUrl(string $path, \DateTimeInterface $expiresAt): string
+    {
+        try {
+            $prefixedPath = $this->prefixer->prefixPath($path);
+
+            // Get the item to get its ID
+            $itemEndpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}";
+            $item = $this->graph->createRequest('GET', $itemEndpoint)
+                ->execute();
+
+            if (!isset($item['id'])) {
+                throw UnableToGenerateTemporaryUrl::noGeneratorConfigured($path);
+            }
+
+            // Create signed URL with expiration
+            // Format: /sharepoint/download/{itemId}?expires={timestamp}&signature={hash}
+            $expires = $expiresAt->getTimestamp();
+            $signature = hash_hmac('sha256', $item['id'] . $expires, config('app.key'));
+
+            return url("/sharepoint/download/{$item['id']}", [
+                'expires' => $expires,
+                'signature' => $signature,
+            ]);
 
         } catch (ClientException $e) {
             throw UnableToGenerateTemporaryUrl::dueToError($path, $e);

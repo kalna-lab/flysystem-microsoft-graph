@@ -2,7 +2,6 @@
 
 namespace KalnaLab\FlysystemMicrosoftGraph;
 
-use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
 use League\Flysystem\Filesystem;
@@ -46,12 +45,15 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
         Storage::extend('sharepoint', function ($app, $config) {
             return $this->createFilesystem($config);
         });
+
+        // Register download route if enabled
+        $this->registerDownloadRoute();
     }
 
     /**
      * Create a Flysystem instance with Microsoft Graph adapter
      */
-    private function createFilesystem(array $config): FilesystemAdapter
+    private function createFilesystem(array $config): MicrosoftGraphFilesystemAdapter
     {
         // Validate required config
         $this->validateConfig($config);
@@ -67,7 +69,7 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
         // Get access token
         $accessToken = $tokenManager->getAccessToken();
 
-        // Create GraphClient
+        // Create GraphClient (compatible with old Graph API)
         $graphClient = new GraphClient($accessToken);
 
         // Create adapter
@@ -77,14 +79,15 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
             $config['prefix'] ?? ''
         );
 
-        // Create Flysystem filesystem
-        $filesystem = new Filesystem($adapter, [
-            'visibility' => 'public',
-            'disable_asserts' => true,
-        ]);
-
-        // Return custom wrapper with temporaryUrl support
-        return new MicrosoftGraphFilesystemAdapter($filesystem, $adapter, $config);
+        // Return our custom FilesystemAdapter with temporaryUrl support
+        return new MicrosoftGraphFilesystemAdapter(
+            new Filesystem($adapter, [
+                'visibility' => 'public',
+                'disable_asserts' => true,
+            ]),
+            $adapter,
+            $config
+        );
     }
 
     /**
@@ -101,5 +104,26 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
                 );
             }
         }
+    }
+
+    /**
+     * Register the SharePoint download route
+     */
+    private function registerDownloadRoute(): void
+    {
+        // Only register if enabled
+        if (!config('flysystem-msgraph.download_route.enabled', true)) {
+            return;
+        }
+
+        // Register route
+        $router = $this->app->make('router');
+
+        $router->middleware(config('flysystem-msgraph.download_route.middleware', ['web']))
+            ->get(
+                config('flysystem-msgraph.download_route.path', 'sharepoint/download/{itemId}'),
+                [Http\Controllers\SharePointDownloadController::class, '__invoke']
+            )
+            ->name(config('flysystem-msgraph.download_route.name', 'sharepoint.download'));
     }
 }

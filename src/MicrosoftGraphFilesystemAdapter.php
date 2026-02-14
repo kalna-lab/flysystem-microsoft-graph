@@ -21,9 +21,9 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
     /**
      * Get a temporary URL for the file at the given path.
      *
-     * @param  string  $path
-     * @param  \DateTimeInterface  $expiration
-     * @param  array  $options
+     * @param string $path
+     * @param \DateTimeInterface $expiration
+     * @param array $options
      * @return string
      *
      * @throws \RuntimeException
@@ -33,7 +33,7 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
         return $this->adapter->temporaryUrl(
             $path,
             $expiration,
-            $this->config($options)
+            new \League\Flysystem\Config($options)
         );
     }
 }

@@ -61,4 +61,43 @@ return [
         // Connection timeout in seconds
         'connect_timeout' => env('MSGRAPH_API_CONNECT_TIMEOUT', 10),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Temporary URL Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Determines how temporary URLs are generated.
+    |
+    | Available modes:
+    | - 'share': Creates anonymous SharePoint sharing links (requires sharing enabled)
+    | - 'download': Creates signed download URLs via your application (more secure)
+    |
+    */
+    
+    'temporary_url_type' => env('MSGRAPH_TEMPORARY_URL_TYPE', 'share'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Download Route Configuration
+    |--------------------------------------------------------------------------
+    |
+    | When using 'download' mode for temporary URLs, a route is needed to
+    | handle the signed download requests.
+    |
+    */
+    
+    'download_route' => [
+        // Enable automatic route registration
+        'enabled' => env('MSGRAPH_DOWNLOAD_ROUTE_ENABLED', true),
+        
+        // Route path (without leading slash)
+        'path' => env('MSGRAPH_DOWNLOAD_ROUTE_PATH', 'sharepoint/download/{itemId}'),
+        
+        // Route name
+        'name' => 'sharepoint.download',
+        
+        // Middleware to apply to the route
+        'middleware' => ['web'],
+    ],
 ];

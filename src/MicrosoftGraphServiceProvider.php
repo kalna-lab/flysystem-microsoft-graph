@@ -67,7 +67,7 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
         // Get access token
         $accessToken = $tokenManager->getAccessToken();
 
-        // Create GraphClient (compatible with old Graph API)
+        // Create GraphClient
         $graphClient = new GraphClient($accessToken);
 
         // Create adapter
@@ -77,15 +77,14 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
             $config['prefix'] ?? ''
         );
 
-        // Return Laravel's FilesystemAdapter wrapping Flysystem
-        return new FilesystemAdapter(
-            new Filesystem($adapter, [
-                'visibility' => 'public',
-                'disable_asserts' => true,
-            ]),
-            $adapter,
-            $config
-        );
+        // Create Flysystem filesystem
+        $filesystem = new Filesystem($adapter, [
+            'visibility' => 'public',
+            'disable_asserts' => true,
+        ]);
+
+        // Return custom wrapper with temporaryUrl support
+        return new MicrosoftGraphFilesystemAdapter($filesystem, $adapter, $config);
     }
 
     /**

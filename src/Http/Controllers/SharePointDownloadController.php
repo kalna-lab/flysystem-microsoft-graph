@@ -2,8 +2,10 @@
 
 namespace KalnaLab\FlysystemMicrosoftGraph\Http\Controllers;
 
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SharePointDownloadController
@@ -115,8 +117,8 @@ class SharePointDownloadController
                 'mime_type' => $response['file']['mimeType'] ?? 'application/octet-stream',
             ];
 
-        } catch (\Exception $e) {
-            \Log::error('Failed to get file by item ID', [
+        } catch (Exception $e) {
+            Log::error('Failed to get file by item ID', [
                 'item_id' => $itemId,
                 'error' => $e->getMessage(),
             ]);

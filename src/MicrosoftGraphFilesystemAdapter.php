@@ -3,8 +3,12 @@
 namespace KalnaLab\FlysystemMicrosoftGraph;
 
 use DateTimeInterface;
+use Exception;
 use Illuminate\Filesystem\FilesystemAdapter;
+use League\Flysystem\Config;
 use League\Flysystem\FilesystemOperator;
+use ReflectionMethod;
+use RuntimeException;
 
 class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
 {
@@ -22,26 +26,32 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
     /**
      * Get a temporary URL for the file at the given path.
      *
-     * @throws \RuntimeException
+     * @param string $path
+     * @param DateTimeInterface $expiration
+     * @param array $options
+     * @return string
+     *
+     * @throws RuntimeException
      */
-    public function temporaryUrl($path, $expiration, array $options = []): string
+    public function temporaryUrl($path, $expiration, array $options = [])
     {
         return $this->adapter->temporaryUrl(
             $path,
             $expiration,
-            new \League\Flysystem\Config($options)
+            new Config($options)
         );
     }
 
     /**
      * Get complete file metadata including SharePoint-specific fields
      *
-     * @return array ['path', 'size', 'timestamp', 'mime_type', 'extra' => ['type', 'timestamp', 'item_id', 'web_url', 'created_at', 'created_by', 'modified_at', 'modified_by', 'list_fields']]
+     * @param string $path
+     * @return array
      */
-    public function metadata(string $path): array
+    public function metadata($path)
     {
         // Use reflection to access private getMetadata method
-        $reflection = new \ReflectionMethod($this->adapter, 'getMetadata');
+        $reflection = new ReflectionMethod($this->adapter, 'getMetadata');
         $reflection->setAccessible(true);
 
         $fileAttributes = $reflection->invoke($this->adapter, $path);
@@ -65,7 +75,7 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
                     $metadata['extra']['title'] = $listFields['Title'];
                 }
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // List fields not available, continue without them
         }
 
@@ -93,7 +103,7 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
     /**
      * Set SharePoint document title
      *
-     * @throws \Exception
+     * @throws Exception
      */
     public function setTitle(string $path, string $title): bool
     {
@@ -111,7 +121,7 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
     /**
      * Set multiple SharePoint metadata fields
      *
-     * @throws \Exception
+     * @throws Exception
      */
     public function setMetadataFields(string $path, array $fields): bool
     {
@@ -153,5 +163,31 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
     public function getEditUrls(string $path): array
     {
         return $this->adapter->getEditUrls($path);
+    }
+
+    /**
+     * Convert document to another format using SharePoint
+     *
+     * @param string $path
+     * @param string $format Target format (e.g., 'pdf', 'jpg')
+     * @return string|false Converted file contents
+     * @throws Exception
+     */
+    public function convert(string $path, string $format = 'pdf'): string|false
+    {
+        return $this->adapter->convert($path, $format);
+    }
+
+    /**
+     * Convert document by item ID
+     *
+     * @param string $itemId SharePoint item ID
+     * @param string $format Target format (e.g., 'pdf')
+     * @return string|false Converted file contents
+     * @throws Exception
+     */
+    public function convertByItemId(string $itemId, string $format = 'pdf')
+    {
+        return $this->adapter->convertByItemId($itemId, $format);
     }
 }

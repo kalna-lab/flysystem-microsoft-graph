@@ -209,7 +209,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
      * @param string $path File path
      * @return string|null Edit URL for web browser
      */
-    public function getWebEditUrl(string $path): ?string
+    public function getOnlineEditUrl(string $path): ?string
     {
         try {
             $prefixedPath = $this->prefixer->prefixPath($path);
@@ -298,7 +298,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
      * Get all edit URLs for a document
      *
      * @param string $path File path
-     * @return array ['view' => string, 'web_edit' => string, 'desktop_edit' => string]
+     * @return array ['view' => string, 'online' => string, 'desktop' => string]
      */
     public function getEditUrls(string $path): array
     {
@@ -315,8 +315,8 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
 
             $urls = [
                 'view' => $item['webUrl'] ?? null,
-                'web_edit' => null,
-                'desktop_edit' => null,
+                'online' => null,
+                'desktop' => null,
             ];
 
             if ($isOfficeFile && isset($item['webUrl'])) {
@@ -328,7 +328,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
                     $separator = strpos($editUrl, '?') !== false ? '&' : '?';
                     $editUrl .= $separator . 'action=edit';
                 }
-                $urls['web_edit'] = $editUrl;
+                $urls['online'] = $editUrl;
 
                 // Desktop edit URL
                 $protocols = [
@@ -339,7 +339,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
 
                 if (isset($protocols[$extension])) {
                     $protocol = $protocols[$extension];
-                    $urls['desktop_edit'] = "{$protocol}:ofe|u|{$item['webUrl']}";
+                    $urls['desktop'] = "{$protocol}:ofe|u|{$item['webUrl']}";
                 }
             }
 
@@ -348,8 +348,8 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
         } catch (Exception $e) {
             return [
                 'view' => null,
-                'web_edit' => null,
-                'desktop_edit' => null,
+                'online' => null,
+                'desktop' => null,
             ];
         }
     }

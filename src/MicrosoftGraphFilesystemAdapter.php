@@ -22,11 +22,6 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
     /**
      * Get a temporary URL for the file at the given path.
      *
-     * @param string $path
-     * @param DateTimeInterface $expiration
-     * @param array $options
-     * @return string
-     *
      * @throws \RuntimeException
      */
     public function temporaryUrl($path, $expiration, array $options = []): string
@@ -41,7 +36,6 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
     /**
      * Get complete file metadata including SharePoint-specific fields
      *
-     * @param string $path
      * @return array ['path', 'size', 'timestamp', 'mime_type', 'extra' => ['type', 'timestamp', 'item_id', 'web_url', 'created_at', 'created_by', 'modified_at', 'modified_by', 'list_fields']]
      */
     public function metadata(string $path): array
@@ -80,9 +74,6 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
 
     /**
      * Get SharePoint item ID (GUID) for a file
-     *
-     * @param string $path
-     * @return string|null
      */
     public function getItemId(string $path): ?string
     {
@@ -92,9 +83,6 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
 
     /**
      * Get SharePoint web URL for a file
-     *
-     * @param string $path
-     * @return string|null
      */
     public function getWebUrl(string $path): ?string
     {
@@ -105,9 +93,6 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
     /**
      * Set SharePoint document title
      *
-     * @param string $path
-     * @param string $title
-     * @return bool
      * @throws \Exception
      */
     public function setTitle(string $path, string $title): bool
@@ -117,9 +102,6 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
 
     /**
      * Get SharePoint document title
-     *
-     * @param string $path
-     * @return string|null
      */
     public function getTitle(string $path): ?string
     {
@@ -129,9 +111,6 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
     /**
      * Set multiple SharePoint metadata fields
      *
-     * @param string $path
-     * @param array $fields
-     * @return bool
      * @throws \Exception
      */
     public function setMetadataFields(string $path, array $fields): bool
@@ -152,20 +131,14 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
 
     /**
      * Get SharePoint web edit URL (opens in Word/Excel/PowerPoint Online)
-     *
-     * @param string $path
-     * @return string|null
      */
-    public function getWebEditUrl($path): ?string
+    public function getOnlineEditUrl(string $path): ?string
     {
-        return $this->adapter->getWebEditUrl($path);
+        return $this->adapter->getOnlineEditUrl($path);
     }
 
     /**
      * Get desktop app edit URL (opens in desktop Word/Excel/PowerPoint)
-     *
-     * @param string $path
-     * @return string|null
      */
     public function getDesktopEditUrl(string $path): ?string
     {
@@ -175,8 +148,7 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
     /**
      * Get all edit URLs for a document
      *
-     * @param string $path
-     * @return array ['view' => string, 'web_edit' => string, 'desktop_edit' => string]
+     * @return array ['view' => string, 'online' => string, 'desktop' => string]
      */
     public function getEditUrls(string $path): array
     {

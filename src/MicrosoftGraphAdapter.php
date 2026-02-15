@@ -203,6 +203,157 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
         }
     }
 
+    /**
+     * Get SharePoint web edit URL (opens in Word/Excel/PowerPoint Online)
+     *
+     * @param string $path File path
+     * @return string|null Edit URL for web browser
+     */
+    public function getWebEditUrl(string $path): ?string
+    {
+        try {
+            $prefixedPath = $this->prefixer->prefixPath($path);
+
+            // Get item metadata
+            $itemEndpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}";
+            $item = $this->graph->createRequest('GET', $itemEndpoint)
+                ->execute();
+
+            if (!isset($item['webUrl'])) {
+                return null;
+            }
+
+            // For Office files, modify URL for editing
+            $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            $officeExtensions = ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt'];
+
+            if (in_array($extension, $officeExtensions)) {
+                $editUrl = $item['webUrl'];
+
+                // Add action=edit query parameter
+                if (strpos($editUrl, '?web=1') !== false) {
+                    $editUrl = str_replace('?web=1', '?action=edit', $editUrl);
+                } else {
+                    $separator = strpos($editUrl, '?') !== false ? '&' : '?';
+                    $editUrl .= $separator . 'action=edit';
+                }
+
+                return $editUrl;
+            }
+
+            return $item['webUrl'];
+
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Get desktop app edit URL (opens in Word/Excel/PowerPoint desktop app)
+     *
+     * @param string $path File path
+     * @return string|null Desktop app URL
+     */
+    public function getDesktopEditUrl(string $path): ?string
+    {
+        try {
+            $prefixedPath = $this->prefixer->prefixPath($path);
+
+            // Get item metadata
+            $itemEndpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}";
+            $item = $this->graph->createRequest('GET', $itemEndpoint)
+                ->execute();
+
+            if (!isset($item['webUrl'])) {
+                return null;
+            }
+
+            $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+            $protocols = [
+                'docx' => 'ms-word',
+                'doc' => 'ms-word',
+                'xlsx' => 'ms-excel',
+                'xls' => 'ms-excel',
+                'pptx' => 'ms-powerpoint',
+                'ppt' => 'ms-powerpoint',
+            ];
+
+            if (!isset($protocols[$extension])) {
+                return null;
+            }
+
+            $protocol = $protocols[$extension];
+            $webUrl = $item['webUrl'];
+
+            // Format: ms-word:ofe|u|{url}
+            return "{$protocol}:ofe|u|{$webUrl}";
+
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Get all edit URLs for a document
+     *
+     * @param string $path File path
+     * @return array ['view' => string, 'web_edit' => string, 'desktop_edit' => string]
+     */
+    public function getEditUrls(string $path): array
+    {
+        try {
+            $prefixedPath = $this->prefixer->prefixPath($path);
+
+            $itemEndpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}";
+            $item = $this->graph->createRequest('GET', $itemEndpoint)
+                ->execute();
+
+            $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            $officeExtensions = ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt'];
+            $isOfficeFile = in_array($extension, $officeExtensions);
+
+            $urls = [
+                'view' => $item['webUrl'] ?? null,
+                'web_edit' => null,
+                'desktop_edit' => null,
+            ];
+
+            if ($isOfficeFile && isset($item['webUrl'])) {
+                // Web edit URL
+                $editUrl = $item['webUrl'];
+                if (strpos($editUrl, '?web=1') !== false) {
+                    $editUrl = str_replace('?web=1', '?action=edit', $editUrl);
+                } else {
+                    $separator = strpos($editUrl, '?') !== false ? '&' : '?';
+                    $editUrl .= $separator . 'action=edit';
+                }
+                $urls['web_edit'] = $editUrl;
+
+                // Desktop edit URL
+                $protocols = [
+                    'docx' => 'ms-word', 'doc' => 'ms-word',
+                    'xlsx' => 'ms-excel', 'xls' => 'ms-excel',
+                    'pptx' => 'ms-powerpoint', 'ppt' => 'ms-powerpoint',
+                ];
+
+                if (isset($protocols[$extension])) {
+                    $protocol = $protocols[$extension];
+                    $urls['desktop_edit'] = "{$protocol}:ofe|u|{$item['webUrl']}";
+                }
+            }
+
+            return $urls;
+
+        } catch (Exception $e) {
+            return [
+                'view' => null,
+                'web_edit' => null,
+                'desktop_edit' => null,
+            ];
+        }
+    }
+
     public function fileExists(string $path): bool
     {
         try {
@@ -586,9 +737,9 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
                 [
                     'type' => $isDir ? 'dir' : 'file',
                     'timestamp' => $lastModified,
-                    'item_id' => $item['id'] ?? null,                      // SharePoint item ID (GUID)
-                    'web_url' => $item['webUrl'] ?? null,                  // Direct SharePoint URL
-                    'created_at' => $item['createdDateTime'] ?? null,      // Creation timestamp
+                    'item_id' => $item['id'] ?? null,                    // SharePoint item ID (GUID)
+                    'web_url' => $item['webUrl'] ?? null,                // Direct SharePoint URL
+                    'created_at' => $item['createdDateTime'] ?? null,    // Creation timestamp
                     'created_by' => $item['createdBy']['user']['displayName'] ?? null,
                     'modified_at' => $item['lastModifiedDateTime'] ?? null,// Modified timestamp
                     'modified_by' => $item['lastModifiedBy']['user']['displayName'] ?? null,

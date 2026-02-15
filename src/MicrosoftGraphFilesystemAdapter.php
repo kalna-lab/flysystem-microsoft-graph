@@ -2,6 +2,7 @@
 
 namespace KalnaLab\FlysystemMicrosoftGraph;
 
+use DateTimeInterface;
 use Illuminate\Filesystem\FilesystemAdapter;
 use League\Flysystem\FilesystemOperator;
 
@@ -22,13 +23,13 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
      * Get a temporary URL for the file at the given path.
      *
      * @param string $path
-     * @param \DateTimeInterface $expiration
+     * @param DateTimeInterface $expiration
      * @param array $options
      * @return string
      *
      * @throws \RuntimeException
      */
-    public function temporaryUrl($path, $expiration, array $options = [])
+    public function temporaryUrl($path, $expiration, array $options = []): string
     {
         return $this->adapter->temporaryUrl(
             $path,
@@ -43,7 +44,7 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
      * @param string $path
      * @return array ['path', 'size', 'timestamp', 'mime_type', 'extra' => ['type', 'timestamp', 'item_id', 'web_url', 'created_at', 'created_by', 'modified_at', 'modified_by', 'list_fields']]
      */
-    public function metadata($path): array
+    public function metadata(string $path): array
     {
         // Use reflection to access private getMetadata method
         $reflection = new \ReflectionMethod($this->adapter, 'getMetadata');
@@ -83,7 +84,7 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
      * @param string $path
      * @return string|null
      */
-    public function getItemId($path)
+    public function getItemId(string $path): ?string
     {
         $metadata = $this->metadata($path);
         return $metadata['extra']['item_id'] ?? null;
@@ -95,7 +96,7 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
      * @param string $path
      * @return string|null
      */
-    public function getWebUrl($path)
+    public function getWebUrl(string $path): ?string
     {
         $metadata = $this->metadata($path);
         return $metadata['extra']['web_url'] ?? null;
@@ -109,7 +110,7 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
      * @return bool
      * @throws \Exception
      */
-    public function setTitle($path, $title)
+    public function setTitle(string $path, string $title): bool
     {
         return $this->adapter->setTitle($path, $title);
     }
@@ -120,7 +121,7 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
      * @param string $path
      * @return string|null
      */
-    public function getTitle($path)
+    public function getTitle(string $path): ?string
     {
         return $this->adapter->getDocumentTitle($path);
     }
@@ -133,7 +134,7 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
      * @return bool
      * @throws \Exception
      */
-    public function setMetadataFields($path, array $fields)
+    public function setMetadataFields(string $path, array $fields): bool
     {
         return $this->adapter->setMetadataFields($path, $fields);
     }
@@ -144,8 +145,41 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
      * @param string $path
      * @return array|null
      */
-    public function getListItemFields($path)
+    public function getListItemFields(string $path): ?array
     {
         return $this->adapter->getListItemFields($path);
+    }
+
+    /**
+     * Get SharePoint web edit URL (opens in Word/Excel/PowerPoint Online)
+     *
+     * @param string $path
+     * @return string|null
+     */
+    public function getWebEditUrl($path): ?string
+    {
+        return $this->adapter->getWebEditUrl($path);
+    }
+
+    /**
+     * Get desktop app edit URL (opens in desktop Word/Excel/PowerPoint)
+     *
+     * @param string $path
+     * @return string|null
+     */
+    public function getDesktopEditUrl(string $path): ?string
+    {
+        return $this->adapter->getDesktopEditUrl($path);
+    }
+
+    /**
+     * Get all edit URLs for a document
+     *
+     * @param string $path
+     * @return array ['view' => string, 'web_edit' => string, 'desktop_edit' => string]
+     */
+    public function getEditUrls(string $path): array
+    {
+        return $this->adapter->getEditUrls($path);
     }
 }

@@ -76,6 +76,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
      * @param string $path File path
      * @param string $title Document title
      * @return bool Success
+     * @throws Exception if update fails
      */
     public function setTitle(string $path, string $title): bool
     {
@@ -88,7 +89,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
                 ->execute();
 
             if (!isset($item['id'])) {
-                return false;
+                throw new Exception("File not found: {$path}");
             }
 
             // Update the Title field in SharePoint list item
@@ -102,8 +103,11 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
 
             return true;
 
+        } catch (ClientException $e) {
+            $body = $e->getResponse() ? $e->getResponse()->getBody()->getContents() : '';
+            throw new Exception("Failed to set title: " . $e->getMessage() . " - " . $body);
         } catch (Exception $e) {
-            return false;
+            throw $e;
         }
     }
 
@@ -114,6 +118,22 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
      * @return string|null Document title
      */
     public function getDocumentTitle(string $path): ?string
+    {
+        try {
+            $fields = $this->getListItemFields($path);
+            return $fields['Title'] ?? null;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Get all SharePoint list item fields
+     *
+     * @param string $path File path
+     * @return array|null Array of field name => value pairs
+     */
+    public function getListItemFields(string $path): ?array
     {
         try {
             $prefixedPath = $this->prefixer->prefixPath($path);
@@ -133,7 +153,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
             $fields = $this->graph->createRequest('GET', $fieldsEndpoint)
                 ->execute();
 
-            return $fields['Title'] ?? null;
+            return $fields;
 
         } catch (Exception $e) {
             return null;
@@ -146,6 +166,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
      * @param string $path File path
      * @param array $fields Associative array of field names and values
      * @return bool Success
+     * @throws Exception if field doesn't exist or other error
      */
     public function setMetadataFields(string $path, array $fields): bool
     {
@@ -158,20 +179,27 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
                 ->execute();
 
             if (!isset($item['id'])) {
-                return false;
+                throw new Exception("File not found: {$path}");
             }
 
             // Update multiple fields in SharePoint list item
             $updateEndpoint = "/drives/{$this->driveId}/items/{$item['id']}/listItem/fields";
 
-            $this->graph->createRequest('PATCH', $updateEndpoint)
+            $response = $this->graph->createRequest('PATCH', $updateEndpoint)
                 ->attachBody($fields)
                 ->execute();
 
             return true;
 
+        } catch (ClientException $e) {
+            // Check if error is about missing field
+            $body = $e->getResponse() ? $e->getResponse()->getBody()->getContents() : '';
+            if (strpos($body, 'does not exist') !== false || strpos($body, 'Column') !== false) {
+                throw new Exception("One or more fields do not exist in SharePoint library. Available fields: Title (always available). Custom fields must be created in SharePoint first. Error: " . $body);
+            }
+            throw new Exception("Failed to set metadata fields: " . $e->getMessage() . " - " . $body);
         } catch (Exception $e) {
-            return false;
+            throw $e;
         }
     }
 
@@ -558,10 +586,11 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
                 [
                     'type' => $isDir ? 'dir' : 'file',
                     'timestamp' => $lastModified,
-                    'item_id' => $item['id'] ?? null,                    // SharePoint item ID (GUID)
-                    'web_url' => $item['webUrl'] ?? null,                // Direct SharePoint URL
-                    'created_at' => $item['createdDateTime'] ?? null,    // Creation timestamp
+                    'item_id' => $item['id'] ?? null,                      // SharePoint item ID (GUID)
+                    'web_url' => $item['webUrl'] ?? null,                  // Direct SharePoint URL
+                    'created_at' => $item['createdDateTime'] ?? null,      // Creation timestamp
                     'created_by' => $item['createdBy']['user']['displayName'] ?? null,
+                    'modified_at' => $item['lastModifiedDateTime'] ?? null,// Modified timestamp
                     'modified_by' => $item['lastModifiedBy']['user']['displayName'] ?? null,
                 ]
             );

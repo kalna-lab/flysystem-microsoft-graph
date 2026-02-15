@@ -3,7 +3,6 @@
 namespace KalnaLab\FlysystemMicrosoftGraph;
 
 use Illuminate\Filesystem\FilesystemAdapter;
-use League\Flysystem\FileAttributes;
 use League\Flysystem\FilesystemOperator;
 
 class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
@@ -40,14 +39,42 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
 
     /**
      * Get complete file metadata including SharePoint-specific fields
+     *
+     * @param string $path
+     * @return array ['path', 'size', 'timestamp', 'mime_type', 'extra' => ['type', 'timestamp', 'item_id', 'web_url', 'created_at', 'created_by', 'modified_at', 'modified_by', 'list_fields']]
      */
-    public function metadata($path): FileAttributes
+    public function metadata($path): array
     {
         // Use reflection to access private getMetadata method
         $reflection = new \ReflectionMethod($this->adapter, 'getMetadata');
         $reflection->setAccessible(true);
 
-        return $reflection->invoke($this->adapter, $path);
+        $fileAttributes = $reflection->invoke($this->adapter, $path);
+
+        $metadata = [
+            'path' => $fileAttributes->path(),
+            'size' => $fileAttributes->fileSize(),
+            'timestamp' => $fileAttributes->lastModified(),
+            'mime_type' => $fileAttributes->mimeType(),
+            'extra' => $fileAttributes->extraMetadata(),
+        ];
+        $metadata['extra']['list_fields'] = [];
+
+        // Try to get list item fields (Title, custom fields)
+        try {
+            $listFields = $this->adapter->getListItemFields($path);
+            if ($listFields) {
+                $metadata['extra']['list_fields'] = $listFields;
+                // Also add Title directly for convenience
+                if (isset($listFields['Title'])) {
+                    $metadata['extra']['title'] = $listFields['Title'];
+                }
+            }
+        } catch (\Exception $e) {
+            // List fields not available, continue without them
+        }
+
+        return $metadata;
     }
 
     /**
@@ -59,7 +86,7 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
     public function getItemId($path)
     {
         $metadata = $this->metadata($path);
-        return $metadata->extraMetadata()['item_id'] ?? null;
+        return $metadata['extra']['item_id'] ?? null;
     }
 
     /**
@@ -71,7 +98,7 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
     public function getWebUrl($path)
     {
         $metadata = $this->metadata($path);
-        return $metadata->extraMetadata()['web_url'] ?? null;
+        return $metadata['extra']['web_url'] ?? null;
     }
 
     /**
@@ -80,6 +107,7 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
      * @param string $path
      * @param string $title
      * @return bool
+     * @throws \Exception
      */
     public function setTitle($path, $title)
     {
@@ -103,9 +131,21 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
      * @param string $path
      * @param array $fields
      * @return bool
+     * @throws \Exception
      */
     public function setMetadataFields($path, array $fields)
     {
         return $this->adapter->setMetadataFields($path, $fields);
+    }
+
+    /**
+     * Get all SharePoint list item fields (Title and custom fields)
+     *
+     * @param string $path
+     * @return array|null
+     */
+    public function getListItemFields($path)
+    {
+        return $this->adapter->getListItemFields($path);
     }
 }

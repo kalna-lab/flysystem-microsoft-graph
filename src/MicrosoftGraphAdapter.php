@@ -4,7 +4,6 @@ namespace KalnaLab\FlysystemMicrosoftGraph;
 
 use DateTimeInterface;
 use Exception;
-use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use League\Flysystem\Config;
 use League\Flysystem\DirectoryAttributes;
@@ -22,7 +21,6 @@ use League\Flysystem\UnableToRetrieveMetadata;
 use League\Flysystem\UnableToSetVisibility;
 use League\Flysystem\UnableToWriteFile;
 use League\Flysystem\UrlGeneration\TemporaryUrlGenerator;
-use RuntimeException;
 
 class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
 {
@@ -72,6 +70,111 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
         return $this->prefixer;
     }
 
+    /**
+     * Set SharePoint document title (metadata field)
+     *
+     * @param string $path File path
+     * @param string $title Document title
+     * @return bool Success
+     */
+    public function setTitle(string $path, string $title): bool
+    {
+        try {
+            $prefixedPath = $this->prefixer->prefixPath($path);
+
+            // Get item to get its ID
+            $itemEndpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}";
+            $item = $this->graph->createRequest('GET', $itemEndpoint)
+                ->execute();
+
+            if (!isset($item['id'])) {
+                return false;
+            }
+
+            // Update the Title field in SharePoint list item
+            $updateEndpoint = "/drives/{$this->driveId}/items/{$item['id']}/listItem/fields";
+
+            $this->graph->createRequest('PATCH', $updateEndpoint)
+                ->attachBody([
+                    'Title' => $title
+                ])
+                ->execute();
+
+            return true;
+
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Get SharePoint document title (metadata field)
+     *
+     * @param string $path File path
+     * @return string|null Document title
+     */
+    public function getDocumentTitle(string $path): ?string
+    {
+        try {
+            $prefixedPath = $this->prefixer->prefixPath($path);
+
+            // Get item to get its ID
+            $itemEndpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}";
+            $item = $this->graph->createRequest('GET', $itemEndpoint)
+                ->execute();
+
+            if (!isset($item['id'])) {
+                return null;
+            }
+
+            // Get list item fields
+            $fieldsEndpoint = "/drives/{$this->driveId}/items/{$item['id']}/listItem/fields";
+
+            $fields = $this->graph->createRequest('GET', $fieldsEndpoint)
+                ->execute();
+
+            return $fields['Title'] ?? null;
+
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Set multiple SharePoint metadata fields at once
+     *
+     * @param string $path File path
+     * @param array $fields Associative array of field names and values
+     * @return bool Success
+     */
+    public function setMetadataFields(string $path, array $fields): bool
+    {
+        try {
+            $prefixedPath = $this->prefixer->prefixPath($path);
+
+            // Get item to get its ID
+            $itemEndpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}";
+            $item = $this->graph->createRequest('GET', $itemEndpoint)
+                ->execute();
+
+            if (!isset($item['id'])) {
+                return false;
+            }
+
+            // Update multiple fields in SharePoint list item
+            $updateEndpoint = "/drives/{$this->driveId}/items/{$item['id']}/listItem/fields";
+
+            $this->graph->createRequest('PATCH', $updateEndpoint)
+                ->attachBody($fields)
+                ->execute();
+
+            return true;
+
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
     public function fileExists(string $path): bool
     {
         try {
@@ -79,53 +182,6 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
             return true;
         } catch (UnableToRetrieveMetadata $e) {
             return false;
-        }
-    }
-
-    /**
-     * Get file/directory metadata
-     */
-    private function getMetadata(string $path): FileAttributes
-    {
-        try {
-            $prefixedPath = $this->prefixer->prefixPath($path);
-            $endpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}";
-
-            $item = $this->graph->createRequest('GET', $endpoint)
-                ->execute();
-
-            $isDir = isset($item['folder']);
-            $size = $isDir ? null : ($item['size'] ?? null);
-            $lastModified = isset($item['lastModifiedDateTime'])
-                ? strtotime($item['lastModifiedDateTime'])
-                : null;
-            $mimeType = $isDir ? null : ($item['file']['mimeType'] ?? null);
-
-            return new FileAttributes(
-                $path,
-                $size,
-                null,
-                $lastModified,
-                $mimeType,
-                [
-                    'type' => $isDir ? 'dir' : 'file',
-                    'timestamp' => $lastModified,
-                    'item_id' => $item['id'] ?? null,                    // SharePoint item ID (GUID)
-                    'web_url' => $item['webUrl'] ?? null,                // Direct SharePoint URL
-                    'created_at' => $item['createdDateTime'] ?? null,    // Creation timestamp
-                    'created_by' => $item['createdBy']['user']['displayName'] ?? null,
-                    'modified_at' => $lastModified,    // Modified timestamp
-                    'modified_by' => $item['lastModifiedBy']['user']['displayName'] ?? null,
-                    'raw' => $item,
-                ]
-            );
-        } catch (ClientException $e) {
-            if ($e->getCode() === 404) {
-                throw UnableToRetrieveMetadata::create($path, 'metadata', 'File not found', $e);
-            }
-            throw UnableToRetrieveMetadata::create($path, 'metadata', $e->getMessage(), $e);
-        } catch (Exception $e) {
-            throw UnableToRetrieveMetadata::create($path, 'metadata', $e->getMessage(), $e);
         }
     }
 
@@ -144,77 +200,6 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
         $this->upload($path, $contents);
     }
 
-    /**
-     * Upload file contents to Microsoft Graph
-     */
-    private function upload(string $path, string $contents): void
-    {
-        try {
-            $prefixedPath = $this->prefixer->prefixPath($path);
-            $size = strlen($contents);
-
-            // For files under 4MB, use simple upload
-            if ($size < 4 * 1024 * 1024) {
-                $endpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}:/content";
-
-                $this->graph->createRequest('PUT', $endpoint)
-                    ->attachBody($contents)
-                    ->execute();
-            } else {
-                // For larger files, use resumable upload
-                $this->resumableUpload($prefixedPath, $contents);
-            }
-        } catch (Exception $e) {
-            throw UnableToWriteFile::atLocation($path, $e->getMessage(), $e);
-        }
-    }
-
-    /**
-     * Resumable upload for large files (4MB+)
-     */
-    private function resumableUpload(string $path, string $contents): void
-    {
-        $size = strlen($contents);
-
-        // Create upload session
-        $endpoint = "/drives/{$this->driveId}/root:/{$path}:/createUploadSession";
-        $session = $this->graph->createRequest('POST', $endpoint)
-            ->attachBody([
-                'item' => [
-                    '@microsoft.graph.conflictBehavior' => 'replace'
-                ]
-            ])
-            ->execute();
-
-        $uploadUrl = $session['uploadUrl'] ?? null;
-
-        if (!$uploadUrl) {
-            throw new RuntimeException('Failed to create upload session: no uploadUrl returned');
-        }
-
-        // Upload in chunks of 5MB
-        $chunkSize = 5 * 1024 * 1024;
-        $offset = 0;
-
-        while ($offset < $size) {
-            $chunkEnd = min($offset + $chunkSize, $size) - 1;
-            $chunk = substr($contents, $offset, $chunkSize);
-
-            $headers = [
-                'Content-Length' => strlen($chunk),
-                'Content-Range' => "bytes {$offset}-{$chunkEnd}/{$size}"
-            ];
-
-            $client = new Client();
-            $client->put($uploadUrl, [
-                'headers' => $headers,
-                'body' => $chunk
-            ]);
-
-            $offset += $chunkSize;
-        }
-    }
-
     public function writeStream(string $path, $contents, Config $config): void
     {
         if (!is_resource($contents)) {
@@ -223,19 +208,6 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
 
         $stream = stream_get_contents($contents);
         $this->upload($path, $stream);
-    }
-
-    public function readStream(string $path)
-    {
-        try {
-            $contents = $this->read($path);
-            $stream = fopen('php://temp', 'r+');
-            fwrite($stream, $contents);
-            rewind($stream);
-            return $stream;
-        } catch (Exception $e) {
-            throw UnableToReadFile::fromLocation($path, $e->getMessage(), $e);
-        }
     }
 
     public function read(string $path): string
@@ -250,6 +222,19 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
             return $response->getContents();
         } catch (ClientException $e) {
             throw UnableToReadFile::fromLocation($path, $e->getMessage(), $e);
+        } catch (Exception $e) {
+            throw UnableToReadFile::fromLocation($path, $e->getMessage(), $e);
+        }
+    }
+
+    public function readStream(string $path)
+    {
+        try {
+            $contents = $this->read($path);
+            $stream = fopen('php://temp', 'r+');
+            fwrite($stream, $contents);
+            rewind($stream);
+            return $stream;
         } catch (Exception $e) {
             throw UnableToReadFile::fromLocation($path, $e->getMessage(), $e);
         }
@@ -471,6 +456,122 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
             sleep(1);
         } catch (Exception $e) {
             throw UnableToCopyFile::fromLocationTo($source, $destination, $e);
+        }
+    }
+
+    /**
+     * Upload file contents to Microsoft Graph
+     */
+    private function upload(string $path, string $contents): void
+    {
+        try {
+            $prefixedPath = $this->prefixer->prefixPath($path);
+            $size = strlen($contents);
+
+            // For files under 4MB, use simple upload
+            if ($size < 4 * 1024 * 1024) {
+                $endpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}:/content";
+
+                $this->graph->createRequest('PUT', $endpoint)
+                    ->attachBody($contents)
+                    ->execute();
+            } else {
+                // For larger files, use resumable upload
+                $this->resumableUpload($prefixedPath, $contents);
+            }
+        } catch (Exception $e) {
+            throw UnableToWriteFile::atLocation($path, $e->getMessage(), $e);
+        }
+    }
+
+    /**
+     * Resumable upload for large files (4MB+)
+     */
+    private function resumableUpload(string $path, string $contents): void
+    {
+        $size = strlen($contents);
+
+        // Create upload session
+        $endpoint = "/drives/{$this->driveId}/root:/{$path}:/createUploadSession";
+        $session = $this->graph->createRequest('POST', $endpoint)
+            ->attachBody([
+                'item' => [
+                    '@microsoft.graph.conflictBehavior' => 'replace'
+                ]
+            ])
+            ->execute();
+
+        $uploadUrl = $session['uploadUrl'] ?? null;
+
+        if (!$uploadUrl) {
+            throw new \RuntimeException('Failed to create upload session: no uploadUrl returned');
+        }
+
+        // Upload in chunks of 5MB
+        $chunkSize = 5 * 1024 * 1024;
+        $offset = 0;
+
+        while ($offset < $size) {
+            $chunkEnd = min($offset + $chunkSize, $size) - 1;
+            $chunk = substr($contents, $offset, $chunkSize);
+
+            $headers = [
+                'Content-Length' => strlen($chunk),
+                'Content-Range' => "bytes {$offset}-{$chunkEnd}/{$size}"
+            ];
+
+            $client = new \GuzzleHttp\Client();
+            $client->put($uploadUrl, [
+                'headers' => $headers,
+                'body' => $chunk
+            ]);
+
+            $offset += $chunkSize;
+        }
+    }
+
+    /**
+     * Get file/directory metadata
+     */
+    private function getMetadata(string $path): FileAttributes
+    {
+        try {
+            $prefixedPath = $this->prefixer->prefixPath($path);
+            $endpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}";
+
+            $item = $this->graph->createRequest('GET', $endpoint)
+                ->execute();
+
+            $isDir = isset($item['folder']);
+            $size = $isDir ? null : ($item['size'] ?? null);
+            $lastModified = isset($item['lastModifiedDateTime'])
+                ? strtotime($item['lastModifiedDateTime'])
+                : null;
+            $mimeType = $isDir ? null : ($item['file']['mimeType'] ?? null);
+
+            return new FileAttributes(
+                $path,
+                $size,
+                null,
+                $lastModified,
+                $mimeType,
+                [
+                    'type' => $isDir ? 'dir' : 'file',
+                    'timestamp' => $lastModified,
+                    'item_id' => $item['id'] ?? null,                    // SharePoint item ID (GUID)
+                    'web_url' => $item['webUrl'] ?? null,                // Direct SharePoint URL
+                    'created_at' => $item['createdDateTime'] ?? null,    // Creation timestamp
+                    'created_by' => $item['createdBy']['user']['displayName'] ?? null,
+                    'modified_by' => $item['lastModifiedBy']['user']['displayName'] ?? null,
+                ]
+            );
+        } catch (ClientException $e) {
+            if ($e->getCode() === 404) {
+                throw UnableToRetrieveMetadata::create($path, 'metadata', 'File not found', $e);
+            }
+            throw UnableToRetrieveMetadata::create($path, 'metadata', $e->getMessage(), $e);
+        } catch (Exception $e) {
+            throw UnableToRetrieveMetadata::create($path, 'metadata', $e->getMessage(), $e);
         }
     }
 

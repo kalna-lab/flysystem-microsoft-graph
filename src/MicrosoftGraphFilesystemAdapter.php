@@ -3,7 +3,6 @@
 namespace KalnaLab\FlysystemMicrosoftGraph;
 
 use Illuminate\Filesystem\FilesystemAdapter;
-use League\Flysystem\FileAttributes;
 use League\Flysystem\FilesystemOperator;
 
 class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
@@ -72,5 +71,40 @@ class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter
     {
         $metadata = $this->metadata($path);
         return $metadata->extraMetadata()['web_url'] ?? null;
+    }
+
+    /**
+     * Set SharePoint document title
+     *
+     * @param string $path
+     * @param string $title
+     * @return bool
+     */
+    public function setTitle($path, $title)
+    {
+        return $this->adapter->setTitle($path, $title);
+    }
+
+    /**
+     * Get SharePoint document title
+     *
+     * @param string $path
+     * @return string|null
+     */
+    public function getTitle($path)
+    {
+        return $this->adapter->getDocumentTitle($path);
+    }
+
+    /**
+     * Set multiple SharePoint metadata fields
+     *
+     * @param string $path
+     * @param array $fields
+     * @return bool
+     */
+    public function setMetadataFields($path, array $fields)
+    {
+        return $this->adapter->setMetadataFields($path, $fields);
     }
 }

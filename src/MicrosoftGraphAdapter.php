@@ -6,6 +6,7 @@ use DateTimeInterface;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Psr7\Stream;
 use League\Flysystem\Config;
 use League\Flysystem\DirectoryAttributes;
 use League\Flysystem\FileAttributes;
@@ -380,15 +381,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
                 throw new Exception("File not found: {$path}");
             }
 
-            // Download content with format conversion
-            // Uses: /drives/{driveId}/items/{itemId}/content?format={format}
-            $convertEndpoint = "/drives/{$this->driveId}/items/{$item['id']}/content?format=" . urlencode($format);
-
-            $response = $this->graph->createRequest('GET', $convertEndpoint)
-                ->download();
-
-            return $response->getContents();
-
+            return $this->convertByItemId($item['id'], $format);
         } catch (ClientException $e) {
             $body = $e->getResponse() ? $e->getResponse()->getBody()->getContents() : '';
             throw new Exception("Conversion failed: " . $e->getMessage() . " - " . $body);
@@ -410,7 +403,8 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
             $convertEndpoint = "/drives/{$this->driveId}/items/{$itemId}/content?format=" . urlencode($format);
 
             $response = $this->graph->createRequest('GET', $convertEndpoint)
-                ->download();
+                ->setReturnType(Stream::class)
+                ->execute();
 
             return $response->getContents();
 

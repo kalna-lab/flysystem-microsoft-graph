@@ -3,6 +3,7 @@
 namespace KalnaLab\FlysystemMicrosoftGraph;
 
 use Illuminate\Filesystem\FilesystemAdapter;
+use League\Flysystem\FileAttributes;
 use League\Flysystem\FilesystemOperator;
 
 class MicrosoftGraphFilesystemAdapter extends FilesystemAdapter

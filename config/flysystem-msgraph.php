@@ -100,4 +100,18 @@ return [
         // Middleware to apply to the route
         'middleware' => ['web'],
     ],
+
+    'view_route' => [
+        // Enable automatic route registration
+        'enabled' => env('MSGRAPH_VIEW_ROUTE_ENABLED', true),
+
+        // Route path (without leading slash)
+        'path' => env('MSGRAPH_VIEW_ROUTE_PATH', 'sharepoint/view/{itemId}'),
+
+        // Route name
+        'name' => 'sharepoint.view',
+
+        // Middleware to apply to the route
+        'middleware' => ['web'],
+    ],
 ];

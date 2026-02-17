@@ -837,7 +837,7 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
             return $this->createSharingLink($path, $expiresAt);
         }
 
-        return $this->createDownloadUrl($path, $expiresAt);
+        return $this->createViewUrl($path, $expiresAt);
     }
 
     /**
@@ -904,7 +904,45 @@ class MicrosoftGraphAdapter implements FilesystemAdapter, TemporaryUrlGenerator
             $signature = hash_hmac('sha256', $item['id'] . $expires, config('app.key'));
 
             // Build URL with query parameters
-            $baseUrl = url("/sharepoint/download/{$item['id']}");
+            $baseUrl = route(config('flysystem-msgraph.download_route.name', 'sharepoint.download'), ['itemId' => $item['id']]);
+            $queryString = http_build_query([
+                'expires' => $expires,
+                'signature' => $signature,
+            ]);
+
+            return $baseUrl . '?' . $queryString;
+
+        } catch (ClientException $e) {
+            throw UnableToGenerateTemporaryUrl::dueToError($path, $e);
+        } catch (Exception $e) {
+            throw UnableToGenerateTemporaryUrl::dueToError($path, $e);
+        }
+    }
+
+    /**
+     * Create signed view URL via application route
+     */
+    private function createViewUrl(string $path, DateTimeInterface $expiresAt): string
+    {
+        try {
+            $prefixedPath = $this->prefixer->prefixPath($path);
+
+            // Get the item to get its ID
+            $itemEndpoint = "/drives/{$this->driveId}/root:/{$prefixedPath}";
+            $item = $this->graph->createRequest('GET', $itemEndpoint)
+                ->execute();
+
+            if (!isset($item['id'])) {
+                throw UnableToGenerateTemporaryUrl::noGeneratorConfigured($path);
+            }
+
+            // Create signed URL with expiration
+            // Format: /sharepoint/view/{itemId}?expires={timestamp}&signature={hash}
+            $expires = $expiresAt->getTimestamp();
+            $signature = hash_hmac('sha256', $item['id'] . $expires, config('app.key'));
+
+            // Build URL with query parameters
+            $baseUrl = route(config('flysystem-msgraph.view_route.name', 'sharepoint.view'), ['itemId' => $item['id']]);
             $queryString = http_build_query([
                 'expires' => $expires,
                 'signature' => $signature,

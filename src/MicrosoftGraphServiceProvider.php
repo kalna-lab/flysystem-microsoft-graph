@@ -2,8 +2,8 @@
 
 namespace KalnaLab\FlysystemMicrosoftGraph;
 
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Storage;
 use League\Flysystem\Filesystem;
 
 class MicrosoftGraphServiceProvider extends ServiceProvider
@@ -14,7 +14,7 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(
-            __DIR__ . '/../config/flysystem-msgraph.php',
+            __DIR__.'/../config/flysystem-msgraph.php',
             'flysystem-msgraph'
         );
 
@@ -33,7 +33,7 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
     {
         // Publish configuration
         $this->publishes([
-            __DIR__ . '/../config/flysystem-msgraph.php' => config_path('flysystem-msgraph.php'),
+            __DIR__.'/../config/flysystem-msgraph.php' => config_path('flysystem-msgraph.php'),
         ], 'flysystem-msgraph-config');
 
         // Register the Microsoft Graph filesystem driver
@@ -116,14 +116,22 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
             return;
         }
 
-        // Register route
         $router = $this->app->make('router');
-
+        
+        // Download route (forces download)
         $router->middleware(config('flysystem-msgraph.download_route.middleware', ['web']))
             ->get(
                 config('flysystem-msgraph.download_route.path', 'sharepoint/download/{itemId}'),
                 [Http\Controllers\SharePointDownloadController::class, '__invoke']
             )
             ->name(config('flysystem-msgraph.download_route.name', 'sharepoint.download'));
+
+        // View route (inline viewing in browser)
+        $router->middleware(config('flysystem-msgraph.view_route.middleware', ['web']))
+            ->get(
+                config('flysystem-msgraph.view_route.path', 'sharepoint/view/{itemId}'),
+                [Http\Controllers\SharePointViewController::class, '__invoke']
+            )
+            ->name(config('flysystem-msgraph.view_route.name', 'sharepoint.view'));
     }
 }

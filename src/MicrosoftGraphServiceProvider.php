@@ -66,11 +66,11 @@ class MicrosoftGraphServiceProvider extends ServiceProvider
             $config['tenantId']
         );
 
-        // Get access token
-        $accessToken = $tokenManager->getAccessToken();
-
-        // Create GraphClient (compatible with old Graph API)
-        $graphClient = new GraphClient($accessToken);
+        // Create GraphClient (compatible with old Graph API). The client
+        // resolves the token lazily through the manager on every request, so
+        // a long-lived process never keeps using a token that has since
+        // expired.
+        $graphClient = new GraphClient($tokenManager);
 
         // Create adapter
         $adapter = new MicrosoftGraphAdapter(

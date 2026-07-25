@@ -48,15 +48,33 @@ class TokenManager
     }
 
     /**
-     * Get a valid access token (from cache or by requesting a new one)
+     * Seconds shaved off the token's real lifetime before it is considered
+     * expired, so a token is never served (or used mid-request) right on the
+     * edge of Azure's own expiry.
+     */
+    private const EXPIRY_BUFFER_SECONDS = 300;
+
+    /**
+     * Get a valid access token (from cache or by requesting a new one).
+     *
+     * The cache TTL is derived from the token's real `expires_in` rather than
+     * a fixed window, so a shorter-lived token issued by Azure is refreshed in
+     * time instead of being cached past its actual expiry.
      */
     public function getAccessToken(): string
     {
         $cacheKey = $this->getCacheKey();
 
-        return $this->cache->remember($cacheKey, 58 * 60, function () {
-            return $this->requestAccessToken();
-        });
+        $cached = $this->cache->get($cacheKey);
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
+        }
+
+        [$token, $expiresIn] = $this->requestAccessToken();
+        $ttl = max(60, $expiresIn - self::EXPIRY_BUFFER_SECONDS);
+        $this->cache->put($cacheKey, $token, $ttl);
+
+        return $token;
     }
 
     /**
@@ -71,9 +89,12 @@ class TokenManager
     }
 
     /**
-     * Request a new access token from Microsoft
+     * Request a new access token from Microsoft.
+     *
+     * @return array{0: string, 1: int} The access token and its lifetime in
+     *                                   seconds (`expires_in`).
      */
-    private function requestAccessToken(): string
+    private function requestAccessToken(): array
     {
         try {
             $response = $this->httpClient->post(
@@ -94,7 +115,11 @@ class TokenManager
                 throw new \RuntimeException('No access token in response');
             }
 
-            return $data['access_token'];
+            // Azure always returns expires_in (seconds); fall back to a
+            // conservative ~59 min only if a future/altered response omits it.
+            $expiresIn = (int) ($data['expires_in'] ?? 3540);
+
+            return [$data['access_token'], $expiresIn];
         } catch (\Exception $e) {
             throw new \RuntimeException(
                 "Failed to obtain Microsoft Graph access token: {$e->getMessage()}",

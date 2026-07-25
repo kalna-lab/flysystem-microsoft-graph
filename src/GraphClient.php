@@ -11,14 +11,19 @@ use GuzzleHttp\Client;
 class GraphClient
 {
     private Client $httpClient;
-    private string $accessToken;
+    private TokenManager $tokenManager;
 
     /**
-     * @param string $accessToken Microsoft Graph access token
+     * The access token is resolved lazily per request through the token
+     * manager rather than captured here, so a long-lived process (e.g. a
+     * queue worker) never sends a token that expired after the client was
+     * built.
+     *
+     * @param TokenManager $tokenManager Resolves and refreshes the Graph access token on demand
      */
-    public function __construct(string $accessToken)
+    public function __construct(TokenManager $tokenManager)
     {
-        $this->accessToken = $accessToken;
+        $this->tokenManager = $tokenManager;
 
         $this->httpClient = new Client([
             'base_uri' => 'https://graph.microsoft.com/v1.0/',
@@ -36,6 +41,6 @@ class GraphClient
      */
     public function createRequest(string $method, string $endpoint): RequestBuilder
     {
-        return new RequestBuilder($this->httpClient, $this->accessToken, $method, $endpoint);
+        return new RequestBuilder($this->httpClient, $this->tokenManager, $method, $endpoint);
     }
 }

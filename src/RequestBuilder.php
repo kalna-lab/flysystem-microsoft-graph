@@ -3,6 +3,7 @@
 namespace KalnaLab\FlysystemMicrosoftGraph;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
 
 /**
  * Request builder compatible with old Graph SDK API
@@ -10,7 +11,7 @@ use GuzzleHttp\Client;
 class RequestBuilder
 {
     private Client $httpClient;
-    private string $accessToken;
+    private TokenManager $tokenManager;
     private string $method;
     private string $endpoint;
     private array $headers = [];
@@ -18,13 +19,13 @@ class RequestBuilder
 
     public function __construct(
         Client $httpClient,
-        string $accessToken,
+        TokenManager $tokenManager,
         string $method,
         string $endpoint
     )
     {
         $this->httpClient = $httpClient;
-        $this->accessToken = $accessToken;
+        $this->tokenManager = $tokenManager;
         $this->method = $method;
         $this->endpoint = ltrim($endpoint, '/');
     }
@@ -61,30 +62,26 @@ class RequestBuilder
      */
     public function execute()
     {
-        $headers = array_merge([
-            'Authorization' => 'Bearer ' . $this->accessToken,
-            'Accept' => 'application/json',
-        ], $this->headers);
+        $response = $this->sendWithAuthRetry(function (string $token) {
+            $options = [
+                'headers' => array_merge([
+                    'Authorization' => 'Bearer ' . $token,
+                    'Accept' => 'application/json',
+                ], $this->headers),
+            ];
 
-        $options = [
-            'headers' => $headers,
-        ];
-
-        if ($this->body !== null) {
-            if (is_string($this->body)) {
-                $options['body'] = $this->body;
-            } elseif (is_resource($this->body)) {
-                $options['body'] = $this->body;
-            } else {
-                $options['json'] = $this->body;
+            if ($this->body !== null) {
+                if (is_string($this->body)) {
+                    $options['body'] = $this->body;
+                } elseif (is_resource($this->body)) {
+                    $options['body'] = $this->body;
+                } else {
+                    $options['json'] = $this->body;
+                }
             }
-        }
 
-        $response = $this->httpClient->request(
-            $this->method,
-            $this->endpoint,
-            $options
-        );
+            return $this->httpClient->request($this->method, $this->endpoint, $options);
+        });
 
         // Parse response
         $contentType = $response->getHeaderLine('Content-Type');
@@ -102,21 +99,47 @@ class RequestBuilder
      */
     public function getStream()
     {
-        $headers = array_merge([
-            'Authorization' => 'Bearer ' . $this->accessToken,
-        ], $this->headers);
+        $response = $this->sendWithAuthRetry(function (string $token) {
+            $options = [
+                'headers' => array_merge([
+                    'Authorization' => 'Bearer ' . $token,
+                ], $this->headers),
+                'stream' => true,
+            ];
 
-        $options = [
-            'headers' => $headers,
-            'stream' => true,
-        ];
-
-        $response = $this->httpClient->request(
-            $this->method,
-            $this->endpoint,
-            $options
-        );
+            return $this->httpClient->request($this->method, $this->endpoint, $options);
+        });
 
         return $response->getBody();
+    }
+
+    /**
+     * Send a request with a freshly resolved bearer token, retrying exactly
+     * once on a 401. The token manager hands out a cached token that is
+     * normally still valid; if Graph nonetheless rejects it as expired (the
+     * token lapsed between resolution and use, or the cached value was stale),
+     * we force-refresh and retry so the caller self-heals instead of failing.
+     *
+     * The retry is skipped for resource (stream) bodies, which cannot be
+     * safely re-sent once partially consumed — the lazy token resolution
+     * above already makes a stale token on those requests highly unlikely.
+     *
+     * @param callable(string): \Psr\Http\Message\ResponseInterface $send
+     * @return \Psr\Http\Message\ResponseInterface
+     */
+    private function sendWithAuthRetry(callable $send)
+    {
+        try {
+            return $send($this->tokenManager->getAccessToken());
+        } catch (ClientException $e) {
+            $isUnauthorized = $e->getResponse() !== null
+                && $e->getResponse()->getStatusCode() === 401;
+
+            if ($isUnauthorized && !is_resource($this->body)) {
+                return $send($this->tokenManager->refreshAccessToken());
+            }
+
+            throw $e;
+        }
     }
 }
